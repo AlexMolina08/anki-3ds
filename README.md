@@ -1,8 +1,9 @@
 # Anki 3DS
 
 An unofficial Anki port for the original Nintendo 3DS. Collections, scheduling,
-FSRS and synchronization use Anki's Rust backend. The console runs independently;
-a computer is only needed to build or transfer files.
+FSRS and synchronization use Anki's Rust backend. 
+
+The console runs independently; 
 
 ## Install
 
@@ -39,9 +40,6 @@ English and Spanish follow the console language, with a menu override.
 
 ## Screenshots
 
-Captured from the installed CIA in Azahar’s Old 3DS mode, using a disposable
-collection. These are emulator captures, not photographs of physical hardware.
-
 | Decks | Review |
 | --- | --- |
 | ![Deck list](3ds/docs/images/decks.png) | ![Answer and rating buttons](3ds/docs/images/review.png) |
@@ -55,8 +53,7 @@ Media sync, media playback and CSS card rendering are not supported.
 
 The application opens offline. When needed, a background HTTPS request corrects
 its clock; login and sync reuse a correction checked within the last 30 minutes.
-Certificate and hostname verification remain enabled. Use a developer account and
-a disposable collection for initial hardware testing.
+Certificate and hostname verification remain enabled.
 
 ## Build your own binaries
 
