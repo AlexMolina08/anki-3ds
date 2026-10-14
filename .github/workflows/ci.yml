@@ -1,34 +1,92 @@
-name: Port checks
+name: Build and test
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  desktop-regressions:
-    runs-on: ubuntu-latest
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      upstream: ${{ steps.scope.outputs.upstream }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Install build tools
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Select upstream checks
+        id: scope
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          EVENT: ${{ github.event_name }}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
+          if [[ "$EVENT" == workflow_dispatch || -z "$BASE" || "$BASE" =~ ^0+$ ]]; then
+            echo 'upstream=true' >> "$GITHUB_OUTPUT"
+          elif git diff --quiet "$BASE" HEAD -- rslib proto ftl pylib Cargo.toml Cargo.lock .cargo; then
+            echo 'upstream=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'upstream=true' >> "$GITHUB_OUTPUT"
+          fi
+
+  official-anki-tests:
+    needs: changes
+    if: needs.changes.outputs.upstream == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup-anki
+      - name: Install pinned command runner and test compiler
+        run: |
+          cargo install just --version 1.58.0 --locked
           rustup toolchain install nightly-2026-10-12 --profile minimal
-          rustup toolchain install nightly-2025-03-20 --profile minimal --component rustfmt
-      - name: Check upstream formatting and collection sync
-        env:
-          PROTOC_BINARY: /usr/bin/protoc
-        run: |
-          cargo +nightly-2025-03-20 fmt --all --check
-          cargo +nightly-2026-10-12 test -p anki --lib sync::
-      - name: Check native adapter logic on desktop
-        env:
-          PROTOC_BINARY: /usr/bin/protoc
-        run: |
-          python3 3ds/prepare-coarsetime.py
-          cargo +nightly-2026-10-12 test --manifest-path 3ds/sync-transport/Cargo.toml --lib
-          python3 3ds/testing/locales.py
+      - name: Original Rust workspace tests
+        run: just old3ds-official-rust-ci
+      - name: Original Python collection compatibility tests
+        run: just old3ds-official-python-ci
+
+  native-build:
+    needs: changes
+    runs-on: ubuntu-24.04
+    container:
+      image: devkitpro/devkitarm@sha256:15b79ce75822c289538d8153da5fa7aafe5e6adc32ad8a575a197beca0f0761b
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            out/3ds/collection-target
+          key: native-${{ runner.os }}-${{ hashFiles('3ds/**/Cargo.lock', '3ds/dependencies.json', '3ds/**/*.sh', '3ds/**/*.patch') }}
+      - name: Build from the documented container entry point
+        run: bash 3ds/container-entry.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-${{ github.sha }}
+          if-no-files-found: error
+          path: |
+            out/3ds/app/anki-3ds.3dsx
+            out/3ds/app/anki-3ds.cia
+            out/3ds/app/anki-3ds-*.zip
+            out/3ds/app/manifest.json
+            out/3ds/app/SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: native-logs-${{ github.sha }}
+          path: out/3ds/logs/

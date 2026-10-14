@@ -38,3 +38,8 @@ docs/autoapi/
 /3ds/**/*.log
 /3ds/**/build/
 /3ds/**/sdmc/
+codigo_3ds.txt
+
+/3ds/**/*.cia
+/3ds/**/*.smdh
+/3ds/**/*.bnr

@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Wait for the same commit's main-branch build
+        id: build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in $(seq 1 120); do
+            run_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&event=push" --jq '.workflow_runs | map(select(.head_branch == "main")) | first | .id // empty')
+            if [[ -n "$run_id" ]]; then
+              status=$(gh run view "$run_id" --json status --jq .status)
+              if [[ "$status" == completed ]]; then
+                conclusion=$(gh run view "$run_id" --json conclusion --jq .conclusion)
+                [[ "$conclusion" == success ]] || { echo "Build failed: $conclusion"; exit 1; }
+                echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+            fi
+            sleep 15
+          done
+          echo 'No successful main-branch build for this tag commit.' >&2
+          exit 1
+      - name: Download and verify build artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ steps.build.outputs.run_id }}
+        run: |
+          gh run download "$RUN_ID" --name "native-$GITHUB_SHA" --dir release
+          cd release
+          sha256sum --check SHA256SUMS
+          python3 - <<'PY'
+          import json, os
+          info = json.load(open('manifest.json'))
+          assert info['source_revision'] == os.environ['GITHUB_SHA']
+          assert not info['source_dirty']
+          assert 'v' + info['version'] == os.environ['GITHUB_REF_NAME']
+          PY
+      - name: Publish experimental release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" release/* \
+            --verify-tag --prerelease --title "Anki 3DS $GITHUB_REF_NAME" \
+            --notes-file 3ds/RELEASE_NOTES.md

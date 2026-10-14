@@ -1,0 +1,20 @@
+{
+  "rust": "nightly-2026-10-12",
+  "cargo_3ds": "0.1.5",
+  "just": "1.58.0",
+  "devkitpro_image": "devkitpro/devkitarm@sha256:15b79ce75822c289538d8153da5fa7aafe5e6adc32ad8a575a197beca0f0761b",
+  "ca": {
+    "url": "https://curl.se/ca/cacert-2026-09-25.pem",
+    "sha256": "a41b5d356aea97a529fe27e0f7316d2f9d946d75927476cf9cf1b90637d00505"
+  },
+  "makerom": {
+    "version": "0.19.0",
+    "url": "https://codeload.github.com/3DSGuy/Project_CTR/tar.gz/refs/tags/makerom-v0.19.0",
+    "sha256": "446bd23919b7e9fa10540a784202d388a0b93ef4d7165f3990481edd2aa2f946"
+  },
+  "bannertool": {
+    "version": "1.2.3",
+    "url": "https://github.com/carstene1ns/3ds-bannertool/releases/download/1.2.3/bannertool-1.2.3.tar.gz",
+    "sha256": "3ae61ff21c7762e75ba37a57f248cc0d6a9d4bff92207c57f7420a86dfbd08e6"
+  }
+}

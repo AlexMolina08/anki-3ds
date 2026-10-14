@@ -52,7 +52,6 @@ local offset after calibration, and refreshes before login or synchronization wh
 missing, at least 30 minutes old, or inconsistent with the running RTC. The display
 uses the uncorrected local RTC. It does not rewrite note/card/revlog timestamps.
 
-
 Login is separate from collection synchronization. `Mode::Login` obtains a host
 key through upstream `sync_login_with_client`, then calls upstream
 `online_sync_status_check` to verify the token, follow the permitted endpoint

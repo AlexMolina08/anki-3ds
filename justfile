@@ -418,3 +418,30 @@ old3ds-app-sync-case *args:
 
 old3ds-locales-check:
     python3 3ds/testing/locales.py
+
+# Prepare pinned Rust dependencies, CA bundle, native libraries and CIA tools.
+old3ds-setup:
+    bash 3ds/setup.sh
+
+old3ds-packaging-tools:
+    python3 3ds/prepare-tools.py
+
+old3ds-app-cia:
+    bash 3ds/app/build-cia.sh
+
+# Build and package both supported install formats, without running tests.
+old3ds-release: old3ds-app-build old3ds-app-cia old3ds-app-package
+
+# Original upstream tests for future backend changes; not run by native packaging.
+old3ds-official-rust-ci:
+    PATH="$HOME/.cargo/bin:$PATH" PROTOC_BINARY="$(command -v protoc)" cargo +nightly-2026-10-12 test --locked --workspace
+
+old3ds-official-python-ci:
+    {{ ninja }} pylib
+    PYTHONPATH="$PWD/out/pylib:$PWD/pylib" out/pyenv/bin/python -m pytest pylib/tests
+
+old3ds-app-cia-smoke label:
+    python3 3ds/app/smoke-cia.py {{label}}
+
+old3ds-container-release:
+    bash 3ds/container-build.sh

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 export DEVKITPRO="${DEVKITPRO:-/opt/devkitpro}"
 export DEVKITARM="${DEVKITARM:-$DEVKITPRO/devkitARM}"
-export PATH="$HOME/.cargo/bin:$DEVKITARM/bin:$DEVKITPRO/tools/bin:$PATH"
+export PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/out/3ds/tools/bin:${CARGO_HOME:-$HOME/.cargo}/bin:$DEVKITARM/bin:$DEVKITPRO/tools/bin:$PATH"
 export CC_armv6k_nintendo_3ds="$DEVKITARM/bin/arm-none-eabi-gcc"
 export CXX_armv6k_nintendo_3ds="$DEVKITARM/bin/arm-none-eabi-g++"
 export AR_armv6k_nintendo_3ds="$DEVKITARM/bin/arm-none-eabi-ar"

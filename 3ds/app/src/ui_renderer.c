@@ -5,6 +5,7 @@
 #include <3ds.h>
 #include <citro2d.h>
 #include <citro3d.h>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -219,31 +220,73 @@ void ui_draw_plaque(float x, float y, float w, float h, const char* title, const
     }
 }
 
+// Small outline icons share a 24-unit grid and rounded two-unit strokes.
+// The stacked-card silhouette follows Anki's existing desktop deck icon.
+// Render directly with Citro2D so no texture allocation or runtime SVG is needed.
+static void icon_line(float x, float y, float scale, float x0, float y0,
+                      float x1, float y1, uint32_t color) {
+    float width = 2.0f * scale;
+    ui_draw_line(x + x0 * scale, y + y0 * scale,
+                 x + x1 * scale, y + y1 * scale, width, color);
+    ui_draw_circle(x + x0 * scale, y + y0 * scale, width * 0.5f, color);
+    ui_draw_circle(x + x1 * scale, y + y1 * scale, width * 0.5f, color);
+}
+
+static void icon_arc(float x, float y, float scale, float cx, float cy,
+                     float radius, float start, float sweep, uint32_t color) {
+    const int steps = 16;
+    const float radians = 0.01745329252f;
+    for (int i = 0; i < steps; i++) {
+        float a = (start + sweep * i / steps) * radians;
+        float b = (start + sweep * (i + 1) / steps) * radians;
+        icon_line(x, y, scale, cx + cosf(a) * radius, cy + sinf(a) * radius,
+                  cx + cosf(b) * radius, cy + sinf(b) * radius, color);
+    }
+}
+
+static void icon_card(float x, float y, float scale, uint32_t color) {
+    icon_line(x, y, scale, 5, 8, 14, 8, color);
+    icon_line(x, y, scale, 16, 10, 16, 20, color);
+    icon_line(x, y, scale, 14, 22, 5, 22, color);
+    icon_line(x, y, scale, 3, 20, 3, 10, color);
+    icon_arc(x, y, scale, 5, 10, 2, 180, 90, color);
+    icon_arc(x, y, scale, 14, 10, 2, 270, 90, color);
+    icon_arc(x, y, scale, 14, 20, 2, 0, 90, color);
+    icon_arc(x, y, scale, 5, 20, 2, 90, 90, color);
+    icon_line(x, y, scale, 7, 5, 19, 5, color);
+    icon_line(x, y, scale, 19, 5, 19, 18, color);
+    icon_line(x, y, scale, 10, 2, 22, 2, color);
+    icon_line(x, y, scale, 22, 2, 22, 15, color);
+}
+
 void ui_draw_icon_help(float x, float y, float size) {
-    ui_draw_rect_gradient(x, y, size, size, C2D_RGBA(50, 140, 230, 255), C2D_RGBA(20, 90, 180, 255));
-    ui_draw_line(x, y, x + size, y, 1.0f, C2D_RGBA(120, 190, 255, 255));
-    ui_draw_line(x, y + size, x + size, y + size, 1.0f, C2D_RGBA(15, 60, 130, 255));
-    ui_draw_line(x, y, x, y + size, 1.0f, C2D_RGBA(15, 60, 130, 255));
-    ui_draw_line(x + size, y, x + size, y + size, 1.0f, C2D_RGBA(15, 60, 130, 255));
-    ui_draw_text_centered(x + size / 2.0f, y + 2.0f, 0.48f, C2D_RGBA(255, 255, 255, 255), "?");
+    float scale = size / 24.0f;
+    uint32_t color = C2D_RGBA(37, 99, 235, 255);
+    icon_arc(x, y, scale, 12, 12, 9, 0, 360, color);
+    icon_arc(x, y, scale, 12, 10, 3, 200, 250, color);
+    icon_line(x, y, scale, 12, 13, 12, 14, color);
+    ui_draw_circle(x + 12 * scale, y + 18 * scale, scale, color);
 }
 
 void ui_draw_icon_stats(float x, float y, float size) {
-    float bar_w = size / 5.0f;
-    ui_draw_rect(x, y + size * 0.6f, bar_w, size * 0.4f, C2D_RGBA(220, 60, 50, 255));
-    ui_draw_rect(x + bar_w * 1.2f, y + size * 0.4f, bar_w, size * 0.6f, C2D_RGBA(230, 180, 20, 255));
-    ui_draw_rect(x + bar_w * 2.4f, y + size * 0.1f, bar_w, size * 0.9f, C2D_RGBA(40, 180, 60, 255));
-    ui_draw_rect(x + bar_w * 3.6f, y + size * 0.3f, bar_w, size * 0.7f, C2D_RGBA(40, 120, 220, 255));
+    float scale = size / 24.0f;
+    uint32_t color = C2D_RGBA(37, 99, 235, 255);
+    icon_line(x, y, scale, 4, 20, 20, 20, color);
+    icon_line(x, y, scale, 6, 15, 6, 17, color);
+    icon_line(x, y, scale, 12, 10, 12, 17, color);
+    icon_line(x, y, scale, 18, 4, 18, 17, color);
 }
 
 void ui_draw_icon_gear(float x, float y, float size) {
-    float cx = x + size / 2.0f;
-    float cy = y + size / 2.0f;
-    uint32_t clr = C2D_RGBA(36, 110, 200, 255);
-    ui_draw_rect(cx - size * 0.5f, cy - 2.0f, size, 4.0f, clr);
-    ui_draw_rect(cx - 2.0f, cy - size * 0.5f, 4.0f, size, clr);
-    ui_draw_circle(cx, cy, size * 0.38f, clr);
-    ui_draw_circle(cx, cy, size * 0.16f, C2D_RGBA(248, 248, 246, 255));
+    float scale = size / 24.0f;
+    uint32_t color = C2D_RGBA(37, 99, 235, 255);
+    icon_arc(x, y, scale, 12, 12, 6, 0, 360, color);
+    icon_arc(x, y, scale, 12, 12, 2, 0, 360, color);
+    for (int i = 0; i < 8; i++) {
+        float angle = i * 0.7853981634f;
+        icon_line(x, y, scale, 12 + cosf(angle) * 6, 12 + sinf(angle) * 6,
+                  12 + cosf(angle) * 9, 12 + sinf(angle) * 9, color);
+    }
 }
 
 void ui_draw_nav_tab(float x, float y, float w, float h, const char* label, int icon_type, bool active) {
@@ -261,19 +304,25 @@ void ui_draw_nav_tab(float x, float y, float w, float h, const char* label, int 
 
     float icon_cx = x + (w / 2.0f);
     float icon_cy = y + 12.0f;
+    float ix = icon_cx - 10.0f;
+    float iy = icon_cy - 10.0f;
+    float scale = 20.0f / 24.0f;
+    uint32_t color = active ? C2D_RGBA(37, 99, 235, 255) : C2D_RGBA(91, 108, 130, 255);
     if (icon_type == 0) {
-        ui_draw_rect(icon_cx - 8, icon_cy - 7, 14, 10, C2D_RGBA(180, 110, 60, 255));
-        ui_draw_rect(icon_cx - 6, icon_cy - 5, 14, 10, C2D_RGBA(220, 140, 80, 255));
+        icon_card(ix, iy, scale, color);
     } else if (icon_type == 1) {
-        ui_draw_rect(icon_cx - 2, icon_cy - 6, 4, 12, C2D_RGBA(40, 160, 60, 255));
-        ui_draw_rect(icon_cx - 6, icon_cy - 2, 12, 4, C2D_RGBA(40, 160, 60, 255));
+        icon_line(ix, iy, scale, 12, 4, 12, 20, color);
+        icon_line(ix, iy, scale, 4, 12, 20, 12, color);
     } else if (icon_type == 2) {
-        ui_draw_line(icon_cx - 5, icon_cy + 5, icon_cx + 5, icon_cy - 5, 3.0f, C2D_RGBA(180, 120, 40, 255));
-        ui_draw_circle(icon_cx + 6, icon_cy - 6, 2.0f, C2D_RGBA(220, 60, 60, 255));
+        icon_line(ix, iy, scale, 4, 16, 16, 4, color);
+        icon_line(ix, iy, scale, 16, 4, 20, 8, color);
+        icon_line(ix, iy, scale, 20, 8, 8, 20, color);
+        icon_line(ix, iy, scale, 8, 20, 3, 21, color);
+        icon_line(ix, iy, scale, 3, 21, 4, 16, color);
+        icon_line(ix, iy, scale, 13, 7, 17, 11, color);
     } else if (icon_type == 3) {
-        ui_draw_circle(icon_cx - 2, icon_cy - 2, 5.0f, C2D_RGBA(70, 120, 170, 255));
-        ui_draw_circle(icon_cx - 2, icon_cy - 2, 3.0f, active ? C2D_RGBA(220, 140, 40, 255) : C2D_RGBA(240, 240, 238, 255));
-        ui_draw_line(icon_cx + 1, icon_cy + 1, icon_cx + 6, icon_cy + 6, 2.0f, C2D_RGBA(70, 120, 170, 255));
+        icon_arc(ix, iy, scale, 10, 10, 6, 0, 360, color);
+        icon_line(ix, iy, scale, 14.5f, 14.5f, 21, 21, color);
     }
 
     uint32_t text_clr = active ? C2D_RGBA(20, 20, 20, 255) : C2D_RGBA(60, 60, 60, 255);

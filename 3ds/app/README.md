@@ -2,20 +2,24 @@
 
 ## Installation
 
-Extract the release ZIP and copy its `3ds` folder to the root of the console's
-SD card, merging it with an existing `3ds` folder. The executable must be at
-`SD:/3ds/anki-3ds/anki-3ds.3dsx`. Open Homebrew Launcher and select Anki 3DS.
-This package requires an existing Homebrew Launcher setup; it is not a CIA
-installer or a HOME Menu application.
+The release includes two install formats:
 
-For an upgrade, replace only `anki-3ds.3dsx`. Preserve existing collection files
+- Homebrew Launcher: copy `3ds/anki-3ds/anki-3ds.3dsx` from the ZIP to the same
+  location on SD, then open it in Homebrew Launcher.
+- HOME Menu: copy `cia/anki-3ds.cia` to SD, select it in FBI and install it.
+
+Both formats use `SD:/3ds/anki-3ds/` for the collection and settings. Back up this
+folder before initial hardware testing. Installing the CIA does not import a
+collection or credentials.
+
+For an upgrade, replace the `.3dsx` or install the updated CIA. Preserve collection files
 and settings. The CA bundle is embedded, so no separate certificate installation
 is required. The README, licenses and manifest can remain on your computer.
 
 ## Build and startup
 
-`just old3ds-app-build` builds ARMv6K/VFPv2. `just old3ds-app-package` packages the
-one executable with an embedded CA bundle, without a collection or credentials.
+`just old3ds-release` builds ARMv6K/VFPv2 `.3dsx` and `.cia` binaries and packages
+them with licenses, a manifest and checksums. See the repository README for setup.
 First launch creates its SD folder and writes `cacert.pem` if absent. Sending the
 `.3dsx` through `3dslink` needs no separate certificate transfer. Existing files
 are preserved. Setup errors appear onscreen instead of terminating the app.
@@ -61,8 +65,7 @@ A network error keeps the token; an upstream authentication rejection removes it
 and the next attempt asks for credentials. Two flushed slots preserve the previous
 login during replacement; physical SD power-loss durability is unverified.
 
-Media playback, media synchronization,
-and CSS rendering are unsupported. SD removal and power-loss recovery remain
+Media playback, media synchronization and CSS rendering are unsupported. SD removal and power-loss recovery remain
 unverified; full download retains a `.pre-sync-*` backup before replacement.
 
 `emulator` is a development feature: it accepts `sync-test.json` for disposable

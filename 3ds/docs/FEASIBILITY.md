@@ -198,3 +198,52 @@ and a trusted phone client that pins a key scanned from the console. It remains
 an assessment, not an implemented feature. Existing socket/mbedTLS capabilities,
 browser trust limitations, sources and the smallest next experiment are recorded
 in `3ds/docs/PHONE_LOGIN.md`.
+
+## 2026-10-14: Anki-inspired outline icons
+
+Replaced multicolored navigation symbols with a consistent 24-unit outline grid,
+rounded strokes, Anki's existing blue palette value `#2563eb` for the selected
+tab, and slate for inactive tabs. The deck silhouette follows the stacked cards
+in the upstream desktop SVG. Help, statistics and settings use the same stroke
+style. Citro2D draws the shapes directly; no image dependency, texture allocation,
+collection logic or input behavior changed.
+
+`just old3ds-app-sync-build` passed. The actual native frame is retained at
+`out/3ds/app-sync/modern-icons-01/decks-en.png` and was inspected at 400×480.
+The focused `old3ds-app-sync-case` run with disposable no-change fixtures and
+`--screenshots` passed its original-server comparison and independent SQL oracle.
+Physical Old 3DS appearance remains unverified. `just check`, with the same local
+contributor allowlist described above, again reached 132 passing Qt tests and the
+same two unrelated Briefcase installer-template failures; see
+`out/3ds/logs/modern-icons-check.log`.
+
+The first release artifact was withheld after its renderer source unexpectedly
+reverted during verification. The source was restored from the reviewed change
+and a fresh release build was required. The cause of that revert is unconfirmed.
+
+The final `just old3ds-app-build` passed with the reviewed renderer intact.
+Release input excludes emulator scripts/credentials. Final release SHA-256:
+`49a00a1d55525fc521989d4be9d4256a88da968861da4b474d4efb4f72e86113`. The same binary is saved as
+`out/3ds/app/anki-3ds-modern-icons.3dsx`.
+
+
+## 2026-10-14: CIA packaging and release automation
+
+`just old3ds-release` built both native formats with the maintainer-supplied
+`anki_93962.svg`, retained unchanged as `3ds/app/resources/icon.svg`. The build
+generates SMDH and banner metadata, validates source fingerprints before
+packaging, and writes a manifest and SHA-256 checksums. Setup now fetches the
+pinned CA bundle and coarsetime source instead of relying on a populated cache.
+
+`just old3ds-app-cia-smoke packaging-02` installed title `000400000F3A1000` and
+opened its collection in a fresh Azahar Old 3DS profile. Evidence is retained in
+`out/3ds/cia-smoke/packaging-02/verification.json`. Initial startup failed because
+RSF priority 32 became thread priority 64; RSF priority 16 produces priority 48
+and passed startup. Physical FBI installation remains unverified.
+
+README deck and answer screenshots came from this installed CIA in a separate
+disposable profile. Workflow lint, Python lint and shell syntax checks passed.
+The previously passed official Anki suites were not rerun for this packaging work.
+CI builds from the documented pinned Linux container; backend changes select the
+original Rust workspace and Python compatibility suites. Tagged releases publish
+the exact successful main-branch CI artifacts after checksum validation.
