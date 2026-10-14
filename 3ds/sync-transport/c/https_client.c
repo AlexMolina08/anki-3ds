@@ -118,8 +118,11 @@ int anki_3ds_https_post(
 #ifdef ANKI_3DS_EMULATOR
     allow_override = true;
 #endif
+    uint64_t started = osGetTime();
     int dns_rc = probe_dns_with_context(host, ip, dns_error, dns_cancel, (void *)options, allow_override);
+    out_resp->dns_ms = osGetTime() - started;
     if (dns_rc != 0) {
+        out_resp->total_ms = out_resp->dns_ms;
         snprintf(out_resp->error_msg, sizeof(out_resp->error_msg), "DNS failed: %s", dns_error);
         return -2;
     }
@@ -214,6 +217,14 @@ int anki_3ds_https_post(
     curl_easy_setopt(easy, CURLOPT_ERRORBUFFER, errbuf);
     
     CURLcode code = curl_easy_perform(easy);
+    curl_off_t tcp_us = 0, tls_us = 0, first_byte_us = 0;
+    curl_easy_getinfo(easy, CURLINFO_CONNECT_TIME_T, &tcp_us);
+    curl_easy_getinfo(easy, CURLINFO_APPCONNECT_TIME_T, &tls_us);
+    curl_easy_getinfo(easy, CURLINFO_STARTTRANSFER_TIME_T, &first_byte_us);
+    out_resp->tcp_ms = tcp_us > 0 ? (uint64_t)tcp_us / 1000 : 0;
+    out_resp->tls_ms = tls_us > tcp_us ? (uint64_t)(tls_us - tcp_us) / 1000 : 0;
+    out_resp->first_byte_ms = first_byte_us > 0 ? (uint64_t)first_byte_us / 1000 : 0;
+    out_resp->total_ms = osGetTime() - started;
     if (rx_buf.timed_out) {
         code = CURLE_OPERATION_TIMEDOUT;
         snprintf(errbuf, sizeof(errbuf), "sync I/O timeout");

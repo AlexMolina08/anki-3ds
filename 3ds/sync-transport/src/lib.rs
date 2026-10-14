@@ -4,6 +4,10 @@
 #[cfg(target_os = "horizon")]
 pub mod soc;
 
+#[cfg(test)]
+#[path = "../../app/src/auth_store.rs"]
+mod auth_store_tests;
+
 use std::ffi::CStr;
 use std::ffi::CString;
 use std::io::Read;
@@ -63,6 +67,11 @@ struct RawHttpResponse {
     response_capacity_peak: usize,
     sampled_heap_peak: u32,
     server_time: i64,
+    dns_ms: u64,
+    tcp_ms: u64,
+    tls_ms: u64,
+    first_byte_ms: u64,
+    total_ms: u64,
 }
 
 #[repr(C)]
@@ -265,6 +274,11 @@ impl NativeSyncClient {
             response_capacity_peak: 0,
             sampled_heap_peak: 0,
             server_time: 0,
+            dns_ms: 0,
+            tcp_ms: 0,
+            tls_ms: 0,
+            first_byte_ms: 0,
+            total_ms: 0,
         };
 
         let rc = unsafe {
@@ -283,7 +297,10 @@ impl NativeSyncClient {
 
         tracing::debug!(target: "anki_3ds_sync_transport", compressed_request_bytes = compressed_body.len(),
             response_bytes = raw_resp.response_body_len, response_capacity_peak = raw_resp.response_capacity_peak,
-            sampled_heap_peak = raw_resp.sampled_heap_peak, curl_code = raw_resp.curl_code, "native transfer measurements");
+            sampled_heap_peak = raw_resp.sampled_heap_peak, curl_code = raw_resp.curl_code,
+            path, http_status = raw_resp.http_status, dns_ms = raw_resp.dns_ms, tcp_ms = raw_resp.tcp_ms,
+            tls_ms = raw_resp.tls_ms, first_byte_ms = raw_resp.first_byte_ms, total_ms = raw_resp.total_ms,
+            "native transfer measurements");
         let err_msg = unsafe {
             CStr::from_ptr(raw_resp.error_msg.as_ptr())
                 .to_string_lossy()

@@ -12,6 +12,14 @@ pub fn correction(local: i64, server: i64) -> Result<(i64, i32), &'static str> {
     Ok((seconds, minutes.clamp(-840, 840)))
 }
 
+/// A saved correction expires after 30 minutes. Legacy corrections have no
+/// verification timestamp and must be checked before network operations.
+pub fn fresh(verified_local: Option<i64>, now: i64) -> bool {
+    verified_local
+        .and_then(|verified| now.checked_sub(verified))
+        .is_some_and(|age| (0..1800).contains(&age))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -34,5 +42,14 @@ mod tests {
     fn invalid_clock_is_rejected() {
         assert!(correction(UTC + 172800, UTC).is_err());
         assert!(correction(0, 0).is_err());
+    }
+    #[test]
+    fn freshness_rejects_old_missing_and_backwards_clocks() {
+        assert!(fresh(Some(UTC), UTC));
+        assert!(fresh(Some(UTC), UTC + 1799));
+        assert!(!fresh(Some(UTC), UTC + 1800));
+        assert!(!fresh(Some(UTC), UTC - 1));
+        assert!(!fresh(None, UTC));
+        assert!(!fresh(Some(i64::MIN), i64::MAX));
     }
 }

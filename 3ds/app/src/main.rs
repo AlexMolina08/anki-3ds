@@ -2,6 +2,7 @@
 // License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 
 mod assets;
+mod auth_store;
 mod backend;
 mod clock;
 mod i18n;
@@ -186,6 +187,8 @@ enum Action {
     Help,
     Stats,
     Sync,
+    Login,
+    Logout,
     Clock,
     Language,
     Undo,
@@ -327,7 +330,7 @@ fn row(y: f32, label: &str, selected: bool) {
         &Ui::ellipsize(label, 0.52, 282.0),
     );
 }
-const MENU: [&str; 11] = [
+const MENU: [&str; 13] = [
     "Add note",
     "Edit note",
     "Browse",
@@ -336,6 +339,8 @@ const MENU: [&str; 11] = [
     "Undo",
     "Deck options",
     "Sync",
+    "Log in",
+    "Log out",
     "Update clock",
     "Language",
     "Exit",
@@ -378,11 +383,25 @@ fn main() {
         anki::progress::ProgressState::default(),
     ));
     let mut login = sync::Login::new();
-    let mut auth = None;
+    let mut auth = match auth_store::load(std::path::Path::new(auth_store::DIRECTORY)) {
+        Ok(value) => {
+            event(if value.is_some() {
+                "AUTH_LOADED"
+            } else {
+                "AUTH_EMPTY"
+            });
+            value
+        }
+        Err(error) => {
+            event(&format!("AUTH_LOAD_ERROR {error}"));
+            None
+        }
+    };
     let mut job: Option<sync::Job> = None;
     let mut exit_pending = false;
     let mut clock_job: Option<clock::Job> = None;
-    let mut next_clock_check = Instant::now();
+    let mut next_clock_check =
+        Instant::now() + Duration::from_secs(if clock::needs_refresh() { 0 } else { 1800 });
     let mut clock_connected = false;
     let mut backend = if startup_error.is_some() {
         None
@@ -460,11 +479,16 @@ fn main() {
             }
         }
         let connected = clock::connected();
-        if connected && !clock_connected {
+        if connected && !clock_connected && clock::needs_refresh() {
             next_clock_check = Instant::now();
         }
         clock_connected = connected;
-        if clock_job.is_none() && job.is_none() && connected && Instant::now() >= next_clock_check {
+        if clock_job.is_none()
+            && job.is_none()
+            && connected
+            && clock::needs_refresh()
+            && Instant::now() >= next_clock_check
+        {
             next_clock_check =
                 Instant::now() + Duration::from_secs(if clock::is_known() { 1800 } else { 60 });
             match clock::Job::start() {
@@ -480,6 +504,15 @@ fn main() {
             backend = done.backend;
             auth = done.auth;
             screen = match done.result {
+                Ok(sync::Outcome::LoggedIn) => {
+                    event("LOGIN_COMPLETE");
+                    Screen::Info {
+                        title: tr("Logged in").into(),
+                        text: tr("Login saved. You can sync without entering your password again.")
+                            .into(),
+                        previous: Box::new(Screen::Decks),
+                    }
+                }
                 Ok(sync::Outcome::Complete) => {
                     event("SYNC_COMPLETE");
                     Screen::Info {
@@ -763,6 +796,8 @@ fn main() {
                     "HELP" => Action::Help,
                     "STATS" => Action::Stats,
                     "SYNC" => Action::Sync,
+                    "LOGIN" => Action::Login,
+                    "LOGOUT" => Action::Logout,
                     "LANGUAGE" => Action::Language,
                     "UNDO" => Action::Undo,
                     "CLOCK" => Action::Clock,
@@ -823,6 +858,8 @@ fn main() {
                         Action::Undo,
                         Action::Options,
                         Action::Sync,
+                        Action::Login,
+                        Action::Logout,
                         Action::Clock,
                         Action::Language,
                         Action::Exit,
@@ -877,8 +914,13 @@ fn main() {
             if matches!(screen, Screen::Error(_)) && matches!(action, Action::Primary) {
                 action = Action::Clock;
             }
-            if matches!(action, Action::Sync) || full_mode.is_some() {
-                let offset = match clock::configure(true, &apt, &mut hid, clock_job.take()) {
+            if matches!(action, Action::Sync | Action::Login) || full_mode.is_some() {
+                let offset = match clock::configure(
+                    clock::needs_refresh(),
+                    &apt,
+                    &mut hid,
+                    clock_job.take(),
+                ) {
                     Ok(offset) => offset,
                     Err(error) => {
                         event(&format!("SYNC_ERROR {error}"));
@@ -926,7 +968,11 @@ fn main() {
                     collection,
                     auth.clone(),
                     &login,
-                    full_mode.unwrap_or(sync::Mode::Normal),
+                    full_mode.unwrap_or(if matches!(action, Action::Login) {
+                        sync::Mode::Login
+                    } else {
+                        sync::Mode::Normal
+                    }),
                     progress.clone(),
                 ) {
                     Ok(active) => {
@@ -982,7 +1028,18 @@ fn main() {
                 return Ok(());
             }
             match action {
-                Action::Sync => unreachable!(),
+                Action::Sync | Action::Login => unreachable!(),
+                Action::Logout => {
+                    auth_store::clear(std::path::Path::new(auth_store::DIRECTORY))?;
+                    auth = None;
+                    login.username.clear();
+                    event("LOGOUT_COMPLETE");
+                    screen = Screen::Info {
+                        title: tr("Logged out").into(),
+                        text: tr("Saved login removed from this SD card.").into(),
+                        previous: Box::new(Screen::Decks),
+                    };
+                }
                 Action::Language => {
                     i18n::toggle()?;
                     let card = match &mut screen {
@@ -1415,7 +1472,10 @@ fn main() {
         bottom_max = 0;
         match &screen {
             Screen::SyncWait => {
-                header(400.0, tr("Syncing"));
+                header(
+                    400.0,
+                    job.as_ref().map(sync::Job::title).unwrap_or(tr("Syncing")),
+                );
                 top_layout.draw(
                     &job.as_ref().map(sync::Job::label).unwrap_or_default(),
                     360.0,
@@ -1558,7 +1618,10 @@ fn main() {
         Ui::target_bottom(COLOR_BG_BOTTOM);
         match &screen {
             Screen::SyncWait => {
-                header(320.0, tr("Syncing"));
+                header(
+                    320.0,
+                    job.as_ref().map(sync::Job::title).unwrap_or(tr("Syncing")),
+                );
                 button(60.0, 194.0, 200.0, tr("Cancel [B]"), None, 6);
             }
             Screen::SyncChoice { .. } => {

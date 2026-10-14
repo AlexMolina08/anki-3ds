@@ -201,12 +201,21 @@ int probe_dns_with_context(const char *host, char ip[16], char error[160],
             send(fd, query, qlen, 0) != (ssize_t)qlen) {
             snprintf(error, 160, "DNS send failed: errno=%d", errno); close(fd); continue;
         }
+        uint64_t retry_at = deadline - 2500;
+        bool retried = false;
         snprintf(error, 160, "DNS timeout (5000 ms/server)");
         while (osGetTime() < deadline) {
             if (cancelled && cancelled(context)) { snprintf(error, 160, "DNS cancelled"); close(fd); return -1; }
             fd_set read_set; FD_ZERO(&read_set); FD_SET(fd, &read_set);
             uint64_t now = osGetTime();
             if (now >= deadline) break;
+            // Retry once within the existing deadline; never extend cancellation latency.
+            if (!retried && now >= retry_at) {
+                retried = true;
+                if (send(fd, query, qlen, 0) != (ssize_t)qlen) {
+                    snprintf(error, 160, "DNS retry failed: errno=%d", errno); break;
+                }
+            }
             uint64_t remaining = deadline - now;
             unsigned ms = remaining < 100 ? remaining : 100;
             struct timeval timeout = {0, ms * 1000};

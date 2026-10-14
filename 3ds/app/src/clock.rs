@@ -5,6 +5,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicI32;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
+use std::sync::Mutex;
 #[cfg(feature = "emulator")]
 use std::sync::OnceLock;
 use std::time::Instant;
@@ -23,12 +24,15 @@ use super::ui::*;
 
 static KNOWN: AtomicBool = AtomicBool::new(false);
 static OFFSET: AtomicI32 = AtomicI32::new(0);
+static VERIFIED: Mutex<Option<(i64, i64, Instant)>> = Mutex::new(None);
 const PATH: &str = "sdmc:/3ds/anki-3ds/clock-correction.json";
 const LEGACY: &str = "sdmc:/3ds/anki-3ds/utc-offset-minutes.txt";
 #[derive(Serialize, Deserialize)]
 struct Correction {
     seconds: i64,
     minutes: i32,
+    #[serde(default)]
+    verified_local: Option<i64>,
 }
 extern "C" {
     fn anki_set_clock_correction(seconds: i64);
@@ -45,6 +49,7 @@ fn saved() -> Option<Correction> {
             (-840..=840).contains(&minutes).then_some(Correction {
                 seconds: i64::from(minutes) * 60,
                 minutes,
+                verified_local: None,
             })
         })
         .filter(|c| c.seconds.unsigned_abs() <= 54000 && (-840..=840).contains(&c.minutes))
@@ -65,6 +70,9 @@ fn apply(correction: &Correction) {
         anki_set_clock_correction(correction.seconds);
     }
     OFFSET.store(minutes, Ordering::Relaxed);
+    *VERIFIED.lock().unwrap() = correction
+        .verified_local
+        .map(|verified| (verified, unsafe { anki_local_time() }, Instant::now()));
 }
 
 pub fn init() -> i32 {
@@ -73,6 +81,7 @@ pub fn init() -> i32 {
     let correction = cache.unwrap_or(Correction {
         seconds: 0,
         minutes: 0,
+        verified_local: None,
     });
     apply(&correction);
     correction.minutes
@@ -80,6 +89,20 @@ pub fn init() -> i32 {
 
 pub fn is_known() -> bool {
     KNOWN.load(Ordering::Relaxed)
+}
+
+pub fn needs_refresh() -> bool {
+    let local = unsafe { anki_local_time() };
+    VERIFIED
+        .lock()
+        .unwrap()
+        .as_ref()
+        .is_none_or(|(verified, baseline, started)| {
+            !super::time_correction::fresh(Some(*verified), local)
+                || (local.saturating_sub(*baseline) - started.elapsed().as_secs() as i64)
+                    .unsigned_abs()
+                    > 5
+        })
 }
 
 pub fn connected() -> bool {
@@ -135,7 +158,11 @@ impl Job {
                     cleanup?;
                     let (seconds, minutes) =
                         super::time_correction::correction(local, time?).map_err(str::to_owned)?;
-                    Ok::<_, String>(Correction { seconds, minutes })
+                    Ok::<_, String>(Correction {
+                        seconds,
+                        minutes,
+                        verified_local: Some(local),
+                    })
                 })();
                 let _ = sender.send(result);
             })

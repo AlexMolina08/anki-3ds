@@ -28,8 +28,11 @@ Use disposable data until final hardware and authenticated AnkiWeb verification.
 - Review: A reveals; Y Again, X Hard, A Good, R Easy. Touch ratings also work.
 - Add/Edit: select a field for the Nintendo keyboard; X saves, B cancels.
 - Browse: upstream search syntax; X opens search.
-- Sync: enter username and masked password. B cancels; START cancels and exits
-  after cleanup. Full sync requires a direction when both collections contain data, then asks
+- Menu → Log in: enter your AnkiWeb email and masked password once. Login checks
+  authentication without uploading or downloading a collection. The saved login
+  works after restarting. Menu → Log out removes it from this SD card.
+- Sync reuses the saved login, or asks for credentials when needed. B cancels;
+  START cancels and exits after cleanup. Full sync requires a direction when both collections contain data, then asks
   twice before replacement.
 - SELECT opens Menu, including language and automatic clock updates.
 
@@ -38,8 +41,9 @@ English/Spanish follow the console language. Menu overrides are stored in
 setup is required. The app opens offline immediately. Until the first verified
 HTTPS clock response, timestamps follow the console clock; afterwards the saved
 correction also applies offline. Clock checks run in the background when Wi-Fi
-connects and retry after failures. Sync refreshes the correction before contacting
-the original synchronization engine. The status bar shows the console's local time.
+connects with a stale correction and retry after failures. Login and sync reuse
+corrections verified within 30 minutes. Missing, expired or backwards-clock
+timestamps trigger calibration; an RTC jump during the session also expires it. The status bar shows the console's local time.
 
 The 3DS RTC carries local civil time without a timezone. The adapter obtains UTC
 from the Date header of a certificate- and hostname-validated AnkiWeb HTTPS
@@ -49,7 +53,15 @@ rejected; System Settings remains the source of the user's local date/time.
 Existing `utc-offset-minutes.txt` files are read for compatibility, never requested
 from new users. Successful checks save `clock-correction.json`.
 
-Passwords and host keys stay in memory. Media playback, media synchronization,
+Passwords stay in memory and are cleared after login. Host keys and their sync
+endpoint are saved in `sync-auth.json` and `sync-auth-backup.json`. Both contain
+plaintext bearer credentials: anyone who can read the SD card can use them. Never
+share these files. Logout deletes both slots and any incomplete temporary file.
+A network error keeps the token; an upstream authentication rejection removes it
+and the next attempt asks for credentials. Two flushed slots preserve the previous
+login during replacement; physical SD power-loss durability is unverified.
+
+Media playback, media synchronization,
 and CSS rendering are unsupported. SD removal and power-loss recovery remain
 unverified; full download retains a `.pre-sync-*` backup before replacement.
 

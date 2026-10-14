@@ -403,5 +403,18 @@ old3ds-app-sync-tests label='release':
     PATH="$HOME/.cargo/bin:$PATH" PROTOC_BINARY="$(command -v protoc)" cargo +nightly-2026-10-12 build -p anki-sync-server
     python3 3ds/testing/sync-suite.py {{label}}
 
+# Login-only checks never upload/download a collection. Live credentials are JSON on stdin.
+old3ds-app-login-check label:
+    python3 3ds/testing/login_check.py --label {{label}}
+
+old3ds-app-login-live label:
+    python3 3ds/testing/login_check.py --live --label {{label}}
+
+old3ds-dns-retry-tests:
+    python3 3ds/testing/dns_retry.py
+
+old3ds-app-sync-case *args:
+    python3 3ds/testing/app_sync.py {{args}}
+
 old3ds-locales-check:
     python3 3ds/testing/locales.py

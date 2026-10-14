@@ -92,5 +92,13 @@
     "Connect to Wi-Fi once. No account needed.": "Connect to Wi-Fi once. No account needed.",
     "Clock setup failed: {0}": "Clock setup failed: {0}",
     "Retry [A]": "Retry [A]",
-    "Clock will update when connected": "Clock will update when connected"
+    "Clock will update when connected": "Clock will update when connected",
+    "Log in": "Log in",
+    "Log out": "Log out",
+    "Logged in": "Logged in",
+    "Logged out": "Logged out",
+    "Login saved. You can sync without entering your password again.": "Login saved. You can sync without entering your password again.",
+    "Saved login removed from this SD card.": "Saved login removed from this SD card.",
+    "Could not save login: {0}": "Could not save login: {0}",
+    "Checking login...": "Checking login..."
 }

@@ -22,11 +22,13 @@ use super::i18n::tr;
 
 #[derive(Clone, Copy)]
 pub enum Mode {
+    Login,
     Normal,
     Upload,
     Download,
 }
 pub enum Outcome {
+    LoggedIn,
     Complete,
     FullRequired { upload_ok: bool, download_ok: bool },
 }
@@ -69,6 +71,7 @@ pub struct Job {
     thread: Option<JoinHandle<()>>,
     cancel: Arc<AtomicBool>,
     pub progress: Arc<Mutex<ProgressState>>,
+    login_only: bool,
 }
 impl Job {
     pub fn start(
@@ -84,7 +87,13 @@ impl Job {
         let client = {
             let mut client = client;
             if let Some(endpoint) = &login.endpoint {
-                client.endpoint = ammonia::Url::parse(endpoint).unwrap();
+                if auth
+                    .as_ref()
+                    .and_then(|auth| auth.endpoint.as_ref())
+                    .is_none()
+                {
+                    client.endpoint = ammonia::Url::parse(endpoint).unwrap();
+                }
             }
             if let Some(ca) = &login.ca_file {
                 client.ca_file = ca.clone();
@@ -108,6 +117,7 @@ impl Job {
             thread: Some(thread),
             cancel,
             progress,
+            login_only: matches!(mode, Mode::Login),
         })
     }
     pub fn finish(mut self) -> Option<Completed> {
@@ -146,6 +156,9 @@ impl Job {
         }
     }
     pub fn label(&self) -> String {
+        if self.login_only {
+            return tr("Checking login...").into();
+        }
         match self.progress.lock().unwrap().last_progress {
             Some(Progress::NormalSync(p)) => {
                 use anki::sync::collection::progress::SyncStage;
@@ -167,6 +180,13 @@ impl Job {
                 &[&p.transferred_bytes.to_string(), &p.total_bytes.to_string()],
             ),
             _ => tr("Connecting...").into(),
+        }
+    }
+    pub fn title(&self) -> &'static str {
+        if self.login_only {
+            tr("Log in")
+        } else {
+            tr("Syncing")
         }
     }
 }
@@ -193,10 +213,19 @@ fn run_job(
     let result = match (ps, soc) {
         (Ok(ps), Ok(mut soc)) => {
             let login_result = if auth.is_none() {
-                block_on(sync_login_with_client(&username, &password, &client)).map(|a| {
-                    client.sync_key = a.hkey.clone();
-                    auth = Some(a);
-                })
+                super::event("LOGIN_START");
+                let started = std::time::Instant::now();
+                let result =
+                    block_on(sync_login_with_client(&username, &password, &client)).map(|a| {
+                        client.sync_key = a.hkey.clone();
+                        auth = Some(a);
+                    });
+                super::event(&format!(
+                    "LOGIN_RESULT ok={} elapsed_ms={}",
+                    result.is_ok(),
+                    started.elapsed().as_millis()
+                ));
+                result
             } else {
                 Ok(())
             };
@@ -205,13 +234,26 @@ fn run_job(
             }
             let result = match login_result {
                 Ok(()) => {
-                    let (reopened, result) =
-                        backend
-                            .take()
-                            .unwrap()
-                            .sync(client, mode, &mut auth, progress.clone());
-                    backend = reopened;
-                    result
+                    // Save immediately: a later sync failure must not force
+                    // another login.
+                    let saved = match &auth {
+                        Some(value) => super::auth_store::save(
+                            std::path::Path::new(super::auth_store::DIRECTORY),
+                            value,
+                        ),
+                        None => Ok(()),
+                    };
+                    if let Err(error) = saved {
+                        Err(Box::new(error) as Box<dyn std::error::Error>)
+                    } else {
+                        let (reopened, result) =
+                            backend
+                                .take()
+                                .unwrap()
+                                .sync(client, mode, &mut auth, progress.clone());
+                        backend = reopened;
+                        result
+                    }
                 }
                 Err(error) => Err(Box::new(error) as Box<dyn std::error::Error>),
             };
@@ -245,7 +287,23 @@ fn run_job(
             auth = None;
         }
     }
+    let persistence = match &auth {
+        Some(value) => {
+            super::auth_store::save(std::path::Path::new(super::auth_store::DIRECTORY), value)
+        }
+        None => super::auth_store::clear(std::path::Path::new(super::auth_store::DIRECTORY)),
+    };
     let result = result.map_err(|error| super::user_error(error.as_ref()));
+    let result = match persistence {
+        Ok(()) => result,
+        Err(error) => {
+            super::event(&format!("AUTH_SAVE_ERROR {error}"));
+            Err(super::i18n::format(
+                "Could not save login: {0}",
+                &[&error.to_string()],
+            ))
+        }
+    };
     progress.lock().unwrap().want_abort = false;
     Completed {
         backend,

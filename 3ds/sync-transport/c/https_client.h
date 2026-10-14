@@ -21,6 +21,11 @@ typedef struct {
     size_t response_capacity_peak;
     uint32_t sampled_heap_peak;
     int64_t server_time;
+    uint64_t dns_ms;
+    uint64_t tcp_ms;
+    uint64_t tls_ms;
+    uint64_t first_byte_ms;
+    uint64_t total_ms;
 } Anki3dsHttpResponse;
 
 // Performs an HTTPS request over native Horizon sockets with curl+mbedTLS.
@@ -29,8 +34,8 @@ typedef struct {
 // header_anki_sync: value of anki-sync header, or NULL if none
 // body: request body bytes (already zstd compressed if required)
 // body_len: length of request body
-// timeout_ms: total request deadline in milliseconds
-// connect_timeout_ms: TCP connect deadline in milliseconds
+// timeout_ms: idle I/O deadline in milliseconds (also applies during connection)
+// connect_timeout_ms: TCP and TLS connection deadline in milliseconds
 // out_resp: pointer to response struct to populate
 // Returns 0 on successful HTTP transaction (status > 0), or non-zero on transport error.
 typedef struct {

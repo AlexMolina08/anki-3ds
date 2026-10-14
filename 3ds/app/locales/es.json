@@ -92,5 +92,13 @@
     "Connect to Wi-Fi once. No account needed.": "Conéctate al Wi-Fi una vez. No hace falta una cuenta.",
     "Clock setup failed: {0}": "No se pudo configurar el reloj: {0}",
     "Retry [A]": "Reintentar [A]",
-    "Clock will update when connected": "El reloj se ajustará al conectarse"
+    "Clock will update when connected": "El reloj se ajustará al conectarse",
+    "Log in": "Iniciar sesión",
+    "Log out": "Cerrar sesión",
+    "Logged in": "Sesión iniciada",
+    "Logged out": "Sesión cerrada",
+    "Login saved. You can sync without entering your password again.": "Sesión guardada. Puedes sincronizar sin volver a introducir tu contraseña.",
+    "Saved login removed from this SD card.": "Sesión guardada eliminada de esta tarjeta SD.",
+    "Could not save login: {0}": "No se pudo guardar la sesión: {0}",
+    "Checking login...": "Comprobando sesión..."
 }

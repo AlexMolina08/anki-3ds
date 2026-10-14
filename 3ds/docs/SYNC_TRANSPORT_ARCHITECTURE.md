@@ -48,5 +48,39 @@ HTTPS Date header on the official sync origin, without credentials. Headers are
 accepted only after the existing strict TLS transfer succeeds. Failed requests
 leave study running and retain the last saved correction. The adapter uses the
 console clock provisionally when no correction exists, updates UTC and Anki's
-local offset after calibration, and refreshes before synchronization. The display
+local offset after calibration, and refreshes before login or synchronization when the saved verification is
+missing, at least 30 minutes old, or inconsistent with the running RTC. The display
 uses the uncorrected local RTC. It does not rewrite note/card/revlog timestamps.
+
+
+Login is separate from collection synchronization. `Mode::Login` obtains a host
+key through upstream `sync_login_with_client`, then calls upstream
+`online_sync_status_check` to verify the token, follow the permitted endpoint
+redirect, and validate clock agreement. It does not invoke `NormalSyncer` or a
+full collection transfer. Saved authentication also works for normal/full sync.
+
+`auth_store.rs` stores only host key, endpoint, timeout and a generation counter.
+Two JSON slots plus a temporary file accommodate Horizon's inability to rename
+over an existing SD file. A save flushes the new content, removes the inactive
+slot and renames into that vacant slot, preserving the newest committed slot.
+Load selects the highest valid generation and ignores temporary/incomplete data.
+Both slots are removed on logout or upstream `AuthFailed`. Ordinary transport
+errors preserve authentication. This protects against interrupted application
+writes, not a demonstrated physical power-loss guarantee. Tokens are plaintext
+SD credentials; no password is persisted by release builds.
+
+Transport diagnostics record request path, HTTP/curl status, DNS duration, TCP
+connect duration, TLS handshake duration, first-byte time and total duration.
+The first-byte measurement starts at curl transfer start; total includes the
+external DNS operation. Zero TCP/TLS fields on failure do not prove those stages
+completed. Logs never record credentials, auth headers, response bodies or keys.
+DNS retransmits once after 2.5 seconds within the existing five-second server
+budget. Connect/idle deadlines remain 15/30 seconds until physical measurements
+justify a change. Emulator timing does not measure Old 3DS CPU performance.
+
+`just old3ds-app-login-check LABEL` uses the original disposable desktop server.
+`just old3ds-app-login-live LABEL` reads a JSON object with `username` and
+`password` from stdin and performs only native hostKey/meta requests against
+AnkiWeb. Both require an emulator build and isolated fixture. The live harness
+removes credential configuration and saved tokens on exit; reports contain no
+keys. Never put live credentials in source, arguments, or committed fixtures.

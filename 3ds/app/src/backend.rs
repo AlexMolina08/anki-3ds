@@ -95,6 +95,19 @@ impl Backend {
         use super::sync::Mode;
         use super::sync::Outcome;
         let result = match mode {
+            Mode::Login => {
+                let result = (|| {
+                    let mut client = client;
+                    let state = block_on(anki::sync::collection::status::online_sync_status_check(
+                        self.collection.sync_meta()?, &mut client,
+                    ))?;
+                    if let (Some(endpoint), Some(auth)) = (state.new_endpoint, auth.as_mut()) {
+                        auth.endpoint = Some(ammonia::Url::parse(&endpoint)?);
+                    }
+                    Ok(Outcome::LoggedIn)
+                })();
+                return (Some(self), result);
+            }
             Mode::Normal => {
                 let output = block_on(self.collection.normal_sync_with_client(client));
                 let result = output.map(|o| {

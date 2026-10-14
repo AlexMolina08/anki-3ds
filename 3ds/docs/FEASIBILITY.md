@@ -117,3 +117,84 @@ collections and credentials. Tool versions and target flags are in
 Further release validation requires the current application on physical Old 3DS
 and authenticated synchronization using a separate test account, including review
 of full-sync replacement behavior.
+
+## 2026-10-14: persistent login and measured authentication
+
+Hypothesis: the native app can authenticate with an explicitly authorized,
+disposable developer account, save its upstream host key, and authenticate after
+restart without re-entering credentials or repeating a fresh clock request.
+Success requires native hostKey/meta acceptance, persistent reuse, rejection
+recovery, logout, and unchanged disposable collection entities. No personal
+collection or full/incremental account sync is part of this test.
+
+Changes stay in the 3DS application/transport. Menu has separate Log in/Log out
+commands. Login uses original `sync_login_with_client` and
+`online_sync_status_check`, including upstream endpoint redirect and clock checks.
+Two flushed token slots preserve the last valid save on application-write failure.
+Ordinary network failure keeps authentication; `AuthFailed` removes both slots.
+Passwords are not persisted by release builds. Saved tokens are plaintext SD
+credentials; this is not encrypted storage or proven physical power-loss safety.
+
+Clock verification has a 30-minute lifetime, checks backwards timestamps and
+session RTC discontinuity, and treats legacy corrections as requiring a refresh
+before network operations. Fresh restarts and repeated login/sync attempts skip
+the extra clock TLS request. Offline study retains its previous correction.
+Native logs expose DNS/TCP/TLS/first-byte/total durations and HTTP/curl status,
+without credentials or auth headers. DNS retransmits once at 2.5 seconds within
+the existing five-second per-server deadline; cancellation stays bounded.
+
+Verified commands/results:
+
+- `just old3ds-app-sync-build`: ARMv6K/VFPv2 emulator build passed.
+- `just old3ds-app-build`: release build passed; emulator credential/script
+  support is absent. Release binary SHA-256:
+  `582c844809eac3ab2136815d321a93758f84afef42970098a692ea2a2c5c3621`.
+- `just old3ds-app-login-check auth-clock-03`: passed native login, in-session
+  reuse, restart with blank credentials and no clock request, injected disconnect
+  with token-preserving retry, invalid-token removal, re-login and logout.
+  Disposable note/card/revlog/grave rows remained unchanged.
+- `just old3ds-app-login-live developer-account-01` and final
+  `developer-account-02`: official AnkiWeb accepted
+  the authorized developer account through native hostKey/meta, followed its
+  redirect, and accepted the saved token after restart. Logout passed. Credentials
+  and saved keys were removed from the isolated SD profile by the harness.
+  Initial hostKey transfer took 1,395 ms (1,428 ms including upstream login work);
+  TLS handshakes in that run took 924–968 ms. The final run also confirmed
+  that repeat/restart login goes directly to the saved shard without a repeat
+  HTTP 308 handshake. These are emulator measurements,
+  not Old 3DS hardware timings. No account collection transfer was performed.
+- `just old3ds-sync-transport-tests`: 12 passed, including four persistence tests.
+- `just old3ds-app-assets-tests`: three asset and four clock tests passed.
+- `just old3ds-dns-retry-tests`: the actual C DNS loop passed virtual-clock tests
+  for first-packet loss/retransmit recovery, fixed timeout, cancellation and a
+  failed retransmit. These tests use socket/service mocks, not physical Wi-Fi.
+- `just old3ds-sync-regression`: 38 upstream sync tests passed.
+- `just old3ds-app-sync-case --label login-incremental-01 --fixture
+  out/3ds/normal-sync-probe/fixtures/no_changes/client.anki2 --remote-fixture
+  out/3ds/normal-sync-probe/fixtures/no_changes/server.anki2 --expected-case
+  no_changes --steps SYNC,BACK,EXIT`: native results matched the original desktop
+  server and independent SQL oracle.
+- `just old3ds-locales-check`: 102 English/Spanish messages passed.
+- `just check`: initially blocked by the existing latest author's absence from
+  CONTRIBUTORS history. A second run used the supported local
+  `CONTRIBUTORS_BYPASS_EMAILS` allowlist without changing license declarations.
+  That run reached Qt tests: 132 passed, two installer tests failed because
+  Briefcase could not clone the existing macOS installer template. See
+  `out/3ds/logs/sync-login-check.log`; these desktop installer failures remain.
+
+The earlier `auth-clock-01` test correctly failed on a redundant Wi-Fi reconnect
+clock request; that trigger was fixed before the passing run. A later harness fix
+also preserves a saved redirected endpoint instead of overriding it with the
+emulator configuration's initial endpoint.
+
+Physical Old 3DS authenticated login and timing remain unverified. Connect/idle
+deadlines remain 15/30 seconds: emulator results do not justify the previous
+unmeasured hardware timing claims or arbitrary timeout increases. The next
+hardware experiment is the release `.3dsx`, developer-account Log in, app restart,
+Log in again, and collection-free review of the recorded transfer timings.
+
+Protected optional phone pairing is plausible with a temporary local TLS listener
+and a trusted phone client that pins a key scanned from the console. It remains
+an assessment, not an implemented feature. Existing socket/mbedTLS capabilities,
+browser trust limitations, sources and the smallest next experiment are recorded
+in `3ds/docs/PHONE_LOGIN.md`.
