@@ -702,7 +702,8 @@ impl NativeSyncClient {
 #[async_trait]
 impl anki::sync::collection::protocol::FullSyncClient for NativeSyncClient {
     fn new_download_file(&self, target: &Path) -> anki::prelude::Result<tempfile::NamedTempFile> {
-        Ok(storage::tempfile(target.parent().unwrap(), ".download-")?)
+        Ok(storage::tempfile(target.parent().unwrap(), ".download-")
+            .map_err(|error| storage::file_error("create collection download", target, error))?)
     }
 
     async fn upload_file(
@@ -800,15 +801,10 @@ impl anki::sync::collection::protocol::FullSyncClient for NativeSyncClient {
         if self.cancel.load(Ordering::Acquire) {
             return Err(anki::error::AnkiError::Interrupted);
         }
-        #[cfg(target_os = "horizon")]
-        {
-            storage::replace(file.path(), target)?;
-            Ok(())
-        }
-        #[cfg(not(target_os = "horizon"))]
-        {
-            storage::replace(file.path(), target).map_err(Into::into)
-        }
+        // Horizon cannot rename an open download. Close its file handle while
+        // retaining the temporary path until replacement or recovery completes.
+        let path = file.into_temp_path();
+        storage::replace(&path, target).map_err(Into::into)
     }
 }
 

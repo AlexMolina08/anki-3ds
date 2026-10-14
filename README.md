@@ -17,12 +17,12 @@ Download a build from [Releases](https://github.com/AlexMolina08/anki-3ds/releas
 ### Install directly with FBI
 
 In FBI, select **Remote Install → Scan QR Code**, then scan this code and
-confirm the installation. Wi-Fi is required. The code downloads the v0.3.0 CIA
+confirm the installation. Wi-Fi is required. The code downloads the v0.3.1 CIA
 directly from this repository’s GitHub release.
 
-![Install Anki 3DS v0.3.0 with FBI](3ds/docs/images/install-qr.png)
+![Install Anki 3DS v0.3.1 with FBI](3ds/docs/images/install-qr.png)
 
-[Direct CIA download](https://github.com/AlexMolina08/anki-3ds/releases/download/v0.3.0/anki-3ds.cia)
+[Direct CIA download](https://github.com/AlexMolina08/anki-3ds/releases/download/v0.3.1/anki-3ds.cia)
 
 Both formats use `SD:/3ds/anki-3ds/` for the collection, saved login and settings.
 Back up this folder before testing or upgrading. Replace the executable or install

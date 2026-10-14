@@ -247,3 +247,29 @@ The previously passed official Anki suites were not rerun for this packaging wor
 CI builds from the documented pinned Linux container; backend changes select the
 original Rust workspace and Python compatibility suites. Tagged releases publish
 the exact successful main-branch CI artifacts after checksum validation.
+
+
+## 2026-10-14: Physical full-download replacement failure
+
+The user installed v0.3.0 on a Nintendo 3DS and reached full-download confirmation,
+then received `No such file or directory (os error 2)` during or after transfer.
+This establishes hardware launch and server negotiation, not a completed sync.
+
+The native FullSyncClient retained its NamedTempFile handle while replacing the
+validated download. It now consumes that handle with `into_temp_path()` before
+renaming, retaining automatic temporary-path cleanup and the existing recovery
+journal. This fixes an open-handle rename hazard. libctru's archive_rename tries
+a directory rename after an unsuccessful file rename, potentially obscuring
+the first failure with ENOENT. The photograph alone does not prove that exact
+cause; added operation/path context improves diagnosis if a console retry fails.
+
+Focused transport/storage tests passed 12/12.
+`just old3ds-app-sync-case --label closed-download-01 --fixture
+out/3ds/normal-sync-probe/fixtures/full_required/client.anki2 --remote-fixture
+out/3ds/normal-sync-probe/fixtures/full_required/server.anki2 --steps
+SYNC,DOWN,STUDY,STUDY,BACK,EXIT` passed with native and original server rows equal.
+The original Anki test suites were not rerun. Physical confirmation is pending.
+
+`closed-download-corrupt-01` repeated the full-download flow with an invalid
+response. The operation was rejected and the original collection rows remained
+unchanged. Logs are under `out/3ds/logs/closed-download-*.log`.

@@ -54,9 +54,15 @@ pub fn tempfile(parent: &Path, prefix: &str) -> io::Result<tempfile::NamedTempFi
     }
 }
 
+pub fn file_error(action: &str, path: &Path, error: io::Error) -> io::Error {
+    io::Error::new(error.kind(), format!("{action} {}: {error}", path.display()))
+}
+
 fn copy_flush(source: &Path, destination: &Path) -> io::Result<()> {
-    let mut input = File::open(source)?;
-    let mut output = File::create(destination)?;
+    let mut input = File::open(source)
+        .map_err(|error| file_error("read sync file", source, error))?;
+    let mut output = File::create(destination)
+        .map_err(|error| file_error("create sync file", destination, error))?;
     io::copy(&mut input, &mut output)?;
     output.sync_all()
 }
@@ -101,7 +107,7 @@ pub fn replace(source: &Path, target: &Path) -> io::Result<()> {
     fs::remove_file(target)?;
     if let Err(error) = fs::rename(source, target) {
         recover(target)?;
-        return Err(error);
+        return Err(file_error("install downloaded collection", source, error));
     }
     fs::remove_file(marker)
 }
