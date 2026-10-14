@@ -1,5 +1,10 @@
 # Native dependency probe
 
+> Historical early-stage probe retained for isolated regression testing.
+
+The collection backend now builds and runs in `collection-probe` and `app`.
+This executable tests dependencies in isolation, rather than application readiness.
+
 This executable validates the isolated dependency adaptations needed before
 building the original Collection API. It does not substitute for that API.
 
@@ -24,7 +29,3 @@ objects use newlib's 16-byte mutex layout, while pthread-3ds assumes 40 bytes.
 The native test intentionally uses the default single-thread encoder. Full
 Zstd multithread support needs an ABI adapter or an explicit target policy that
 selects single-thread export; the desktop exporter must retain its behavior.
-
-The direct `3ds/collection-probe` calls upstream CollectionBuilder and original
-search, but dependency compilation currently prevents an executable. Neither
-its PASS message nor a successful Collection read has been observed.

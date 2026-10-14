@@ -31,13 +31,11 @@ fixtures cannot clone the local application template. These are unresolved deskt
 packaging failures, not passing checks. README separates earlier native upstream
 unit results from these application integration tests.
 
-## First launch and clock handling (0.2.1)
+## Startup and clock handling
 
-A clean-install failure after entering the old numeric timezone prompt was reported
-on hardware and reproduced in Azahar: the application folder did not exist when
-saving the setting. The new executable creates its folder and embedded CA file
-before opening the collection. No separate certificate transfer or numeric prompt
-is required. Release builds also ignore emulator action scripts.
+First launch creates the application folder and installs the embedded CA bundle.
+No separate certificate transfer or numeric timezone setup is required. Setup
+errors appear onscreen. Release builds ignore emulator action scripts.
 
 The app opens offline immediately. Clock requests run in a separate worker and
 retry after connection changes or failures. A validated HTTPS Date response gives
@@ -56,14 +54,14 @@ cover assets, preservation, UTC signs, fractional offsets, drift and invalid dat
 Azahar's production DNS configuration fails; this is tolerated without closing the
 app. Direct clock calibration on physical hardware remains to be verified.
 
-## Hardware boundary
+## Hardware verification
 
-A prior physical Old 3DS report records ten disposable engine cases passing.
-Its independent database comparison remains incomplete. Earlier physical HTTPS
-probes reached official AnkiWeb securely. The later engine probe failed DNS while
-an SD override forced 1.1.1.1. Production now uses console DNS and ignores probe
-configuration. The final application and authenticated production AnkiWeb sync
-remain unverified on hardware. No personal collection is included in testing.
+Ten isolated incremental-engine cases have reported success on physical Old 3DS.
+Independent comparison of those hardware databases is incomplete. Native HTTPS
+has reached official AnkiWeb with certificate and hostname validation enabled.
+The final application, automatic clock calibration and authenticated AnkiWeb sync
+have not yet been verified on hardware. Emulator results do not establish SD
+power-loss safety or production account compatibility.
 
 ## Memory and storage
 
@@ -84,25 +82,38 @@ and writes a recovery marker; reopening after an interrupted replacement restore
 the previous file. This is not proof of physical crash safety. Display remains
 text-only; media synchronization/playback and CSS rendering are unsupported.
 
-## Reproduction and records
+## Running the tests
 
-Use `just old3ds-sync-regression`, `just old3ds-sync-transport-tests`, `just old3ds-app-assets-tests`,
-`just old3ds-app-sync-build`, and `just old3ds-app-sync-tests release`.
-The last two use an emulator-only endpoint and isolated project-owned collections.
-Use `just old3ds-app-build` for production; packaging rejects an emulator build.
-Tool versions and flags are in `3ds/toolchain.sh` and the build scripts.
+Run these commands from the repository root:
 
-Raw logs/databases remain in ignored `out/3ds/`:
+```sh
+just old3ds-sync-regression
+just old3ds-sync-transport-tests
+just old3ds-app-assets-tests
+just old3ds-locales-check
+just old3ds-app-sync-build
+just old3ds-app-sync-tests release
+just old3ds-app-offline-clock-check
+just old3ds-app-ui-verify
+```
 
-- `app-sync/clock-zone-final-*` and `logs/clock-zone-final-sync-suite.log`: sixteen HTTPS cases.
-- `logs/final-v10-direction-guard.log`: explicit replacement-direction gate.
-- `logs/clock-offline-final-ui{,-verify}.log`: offline reviews, draft preservation and desktop reopening.
-- `logs/clock-final-repository-check-retry.log`: broad desktop checks; two Qt installer failures.
-- `app-sync/clock-auto-zone-final/`: delayed automatic UTC correction against a strict TLS fixture.
-- `startup-tests/cached-zone-fixed/result.json`: production cached-clock and scheduler offsets.
-- `logs/clock-offline-host-tests.log`: six assets/clock tests.
-- `normal-sync-probe/hardware-results-2026-10-14/report.txt`: earlier hardware run.
-- `cleanup-2026-10-14/docs-before/`: preserved historical raw reports.
+The integration suite uses the original desktop sync server, a local TLS endpoint
+and generated collections under `out/3ds/`. It compares native results with the
+desktop engine and independently checks SQLite rows. It never accesses a personal
+collection or production account. Use a new suite label for each run to preserve
+previous results. The offline UI check tests reviews and editing with an
+unreachable clock endpoint; its verifier reopens the collection on desktop.
 
-Next verification: final package on physical Old 3DS, then a separately approved
-disposable AnkiWeb account test with collection-replacement behavior reviewed.
+`just old3ds-upstream-tests-all` runs the original backend and utility tests on
+desktop and Old 3DS emulation, plus disk-backed comparisons. See the root README
+for native unit-test results and their known failures. `just check` runs the broader
+desktop checks. Keep failed results when reporting a test run.
+
+Build release binaries with `just old3ds-app-build`, then
+`just old3ds-app-package`. Packaging rejects emulator-enabled binaries and excludes
+collections and credentials. Tool versions and target flags are in
+`3ds/toolchain.sh`. Build products and test output belong in ignored `out/3ds/`.
+
+Further release validation requires the current application on physical Old 3DS
+and authenticated synchronization using a separate test account, including review
+of full-sync replacement behavior.

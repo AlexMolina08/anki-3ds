@@ -31,7 +31,7 @@ fn main() {
         println!("ARMv6K / Old 3DS target");
         println!("PASS: 6 assertions");
         println!("HTML / entities / Unicode NFC");
-        println!("Full backend remains blocked.");
+        println!("Isolated text regression test.");
         println!("Press START to exit.");
         hid.scan_input();
         if hid.keys_down().contains(KeyPad::START) {
