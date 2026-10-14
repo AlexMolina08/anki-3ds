@@ -7,6 +7,7 @@
 #include <malloc.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <stdlib.h>
 #include "dns.h"
 
@@ -26,6 +27,21 @@ struct ResponseBuffer {
     FILE *file;
     const Anki3dsRequestOptions *options;
 };
+
+static size_t header_cb(char *data, size_t size, size_t count, void *context) {
+    if (size && count > SIZE_MAX / size) return 0;
+    size_t bytes = size * count;
+    Anki3dsHttpResponse *response = context;
+    if (bytes >= 5 && !strncmp(data, "HTTP/", 5)) response->server_time = 0;
+    if (bytes > 5 && bytes < 128 && !strncasecmp(data, "Date:", 5)) {
+        char value[128];
+        memcpy(value, data + 5, bytes - 5);
+        value[bytes - 5] = 0;
+        time_t date = curl_getdate(value, NULL);
+        if (date > 0) response->server_time = (int64_t)date;
+    }
+    return bytes;
+}
 
 static size_t write_cb(char *ptr, size_t size, size_t nmemb, void *userdata) {
     if (size && nmemb > SIZE_MAX / size) return 0;
@@ -158,6 +174,8 @@ int anki_3ds_https_post(
     }
 
     curl_easy_setopt(easy, CURLOPT_URL, url);
+    curl_easy_setopt(easy, CURLOPT_HEADERFUNCTION, header_cb);
+    curl_easy_setopt(easy, CURLOPT_HEADERDATA, out_resp);
     curl_easy_setopt(easy, CURLOPT_RESOLVE, resolve);
     curl_easy_setopt(easy, CURLOPT_PROTOCOLS_STR, "https");
     curl_easy_setopt(easy, CURLOPT_REDIR_PROTOCOLS_STR, "https");

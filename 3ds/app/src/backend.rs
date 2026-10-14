@@ -134,7 +134,9 @@ impl Backend {
     }
 
     pub fn set_clock_offset(&mut self, offset: i32) -> Result<()> {
-        self.collection.set_configured_utc_offset(-offset)?;
+        if self.collection.get_configured_utc_offset() != Some(-offset) {
+            self.collection.set_configured_utc_offset(-offset)?;
+        }
         Ok(())
     }
 

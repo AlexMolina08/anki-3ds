@@ -139,8 +139,9 @@ void ui_draw_status_bar(float screen_w, const char* title) {
         ui_draw_text(sig_x + 12.0f, 2.0f, 0.45f, C2D_RGBA(40, 40, 40, 255), title);
     }
 
-    time_t raw_time = time(NULL);
-    struct tm* ti = localtime(&raw_time);
+    extern time_t __real_time(time_t *);
+    time_t raw_time = __real_time(NULL);
+    struct tm* ti = gmtime(&raw_time);
     char time_str[16];
     if (ti) {
         snprintf(time_str, sizeof(time_str), "%02d:%02d", ti->tm_hour, ti->tm_min);
@@ -458,4 +459,18 @@ int ui_keyboard(const char* hint, const char* initial, char* output, size_t capa
     if (result == SWKBD_BUTTON_RIGHT) return 1;
     if (result == SWKBD_BUTTON_LEFT) return 0;
     return -1;
+}
+
+bool ui_wifi_connected(void) {
+    static uint64_t next_check;
+    static bool connected;
+    uint64_t now = svcGetSystemTick();
+    if (now < next_check) return connected;
+    next_check = now + SYSCLOCK_ARM11;
+    u32 status = 0;
+    if (R_FAILED(acInit())) return osGetWifiStrength() != 0;
+    Result result = ACU_GetStatus(&status);
+    acExit();
+    connected = R_SUCCEEDED(result) && status == 3;
+    return connected;
 }

@@ -39,7 +39,22 @@ def main():
     sd = OUT / "data/azahar-emu/sdmc/3ds/anki-3ds"
     sd.mkdir(parents=True)
     shutil.copyfile(FIXTURE, sd / "prototype.anki2")
-    (sd / "utc-offset-minutes.txt").write_text("0\n")
+    offline_clock = "--offline-clock" in sys.argv
+    if offline_clock:
+        (sd / "sync-test.json").write_text(
+            json.dumps(
+                {
+                    "endpoint": "https://127.0.0.1:19443/",
+                    "username": "dev",
+                    "password": "disposable",
+                }
+            )
+        )
+    else:
+        (sd / "utc-offset-minutes.txt").write_text("0\n")
+    binary = OUT / "tested.3dsx"
+    shutil.copyfile(ROOT / "out/3ds/app/anki-3ds.3dsx", binary)
+    binary_sha256 = hashlib.sha256(binary.read_bytes()).hexdigest()
     baseline = hashlib.sha256(FIXTURE.read_bytes()).hexdigest()
     steps = [
         "SELECT 0",
@@ -83,6 +98,12 @@ def main():
         "BACK",
         "EXIT",
     ]
+    if offline_clock:
+        # Failed explicit updates must preserve both new and existing note drafts.
+        for index in reversed(
+            [i for i, step in enumerate(steps) if step == "SAVE"][:2]
+        ):
+            steps[index:index] = ["CLOCK", "BACK"]
     (sd / "test-script.txt").write_text("\n".join(steps) + "\n")
     config = OUT / "config/azahar-emu"
     config.mkdir(parents=True)
@@ -145,7 +166,7 @@ enable_rpc_server\\default=false
                     [],
                 ),
                 "--args",
-                str(ROOT / "out/3ds/app/anki-3ds.3dsx"),
+                str(binary),
             ],
             env=env,
             stdout=log,
@@ -201,6 +222,10 @@ enable_rpc_server\\default=false
             except subprocess.TimeoutExpired:
                 proc.kill()
                 proc.wait(timeout=5)
+    if offline_clock:
+        assert "CLOCK_AUTO_ERROR" in events.read_text()
+        assert not (sd / "clock-correction.json").exists()
+        assert not (sd / "utc-offset-minutes.txt").exists()
     assert hashlib.sha256(FIXTURE.read_bytes()).hexdigest() == baseline
     text = events.read_text()
     assert text.count("REVIEW card=") == 4
@@ -210,6 +235,7 @@ enable_rpc_server\\default=false
     (OUT / "run.json").write_text(
         json.dumps(
             {
+                "binary_sha256": binary_sha256,
                 "captures": sorted(captured),
                 "perf": perf,
                 "fixture_sha256_unchanged": baseline,

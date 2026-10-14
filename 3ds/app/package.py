@@ -19,8 +19,11 @@ assert binary.is_file() and ca.is_file(), (
 assert b"sync-test.json" not in binary.read_bytes(), (
     "Refusing to package an emulator test build"
 )
+assert b"test-script.txt" not in binary.read_bytes(), (
+    "Refusing production action-script support"
+)
 metadata = {
-    "version": "0.2.0",
+    "version": "0.2.1",
     "source_revision": subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=root, text=True
     ).strip(),
@@ -31,10 +34,9 @@ metadata = {
     "collections_included": False,
     "credentials_included": False,
 }
-destination = out / "anki-3ds-0.2.0.zip"
+destination = out / "anki-3ds-0.2.1.zip"
 with zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED) as archive:
     archive.write(binary, "3ds/anki-3ds/anki-3ds.3dsx")
-    archive.write(ca, "3ds/anki-3ds/cacert.pem")
     archive.write(root / "3ds/app/README.md", "README.md")
     archive.write(root / "LICENSE", "LICENSE")
     archive.write(

@@ -42,3 +42,11 @@ through a local strict-TLS boundary. It compares native/server databases, the sa
 desktop fixtures, and an independent SQL oracle. Fault injection occurs only at the
 external protocol boundary. Neither this server nor the test configuration is a
 production runtime dependency. See FEASIBILITY.md for results and remaining gates.
+
+Clock conversion is a platform adapter. A background worker obtains UTC from an
+HTTPS Date header on the official sync origin, without credentials. Headers are
+accepted only after the existing strict TLS transfer succeeds. Failed requests
+leave study running and retain the last saved correction. The adapter uses the
+console clock provisionally when no correction exists, updates UTC and Anki's
+local offset after calibration, and refreshes before synchronization. The display
+uses the uncorrected local RTC. It does not rewrite note/card/revlog timestamps.

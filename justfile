@@ -327,12 +327,25 @@ old3ds-app-fixture:
 old3ds-app-verify:
     PYTHONPATH="$PWD/out/pylib:$PWD/pylib" out/pyenv/bin/python 3ds/app/verify.py
 
+old3ds-app-assets-tests:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p out/3ds/startup-tests
+    trial=$(mktemp -d "$PWD/out/3ds/startup-tests/assets-XXXXXX")
+    CARGO_MANIFEST_DIR="$PWD/3ds/app" PATH="$HOME/.cargo/bin:$PATH" rustc +nightly-2026-10-12 --edition 2021 --test 3ds/app/src/assets.rs -o "$trial/tests"
+    ANKI_3DS_ASSET_TEST_ROOT="$trial" "$trial/tests"
+    PATH="$HOME/.cargo/bin:$PATH" rustc +nightly-2026-10-12 --edition 2021 --test 3ds/app/src/time_correction.rs -o "$trial/clock-tests"
+    "$trial/clock-tests"
+
 old3ds-app-package:
     python3 3ds/app/package.py
 
 # Isolated native UI actions and persistence checks (never personal collections).
 old3ds-app-ui-check:
     python3 3ds/app/ui_check.py
+
+old3ds-app-offline-clock-check:
+    python3 3ds/app/ui_check.py --offline-clock
 
 old3ds-app-ui-verify:
     PYTHONPATH="$PWD/out/pylib:$PWD/pylib" out/pyenv/bin/python 3ds/app/verify_ui.py

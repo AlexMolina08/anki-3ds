@@ -62,6 +62,7 @@ struct RawHttpResponse {
     redirect_url: [std::os::raw::c_char; 512],
     response_capacity_peak: usize,
     sampled_heap_peak: u32,
+    server_time: i64,
 }
 
 #[repr(C)]
@@ -162,6 +163,7 @@ pub struct HttpResponse {
     pub status: u16,
     pub body: Vec<u8>,
     pub redirect_url: Option<String>,
+    pub server_time: Option<i64>,
 }
 
 impl NativeSyncClient {
@@ -178,6 +180,16 @@ impl NativeSyncClient {
             cancel: Arc::new(AtomicBool::new(false)),
             ca_file: "sdmc:/3ds/anki-3ds/cacert.pem".into(),
         }
+    }
+
+    /// Read UTC from the authenticated HTTPS origin; no account or collection
+    /// data.
+    pub fn server_time(&self) -> Result<i64, SyncTransportError> {
+        self.post_raw(self.endpoint.path(), "", &[])?
+            .server_time
+            .ok_or_else(|| {
+                SyncTransportError::Serialization("HTTPS response has no valid Date header".into())
+            })
     }
 
     pub fn post_raw(
@@ -252,6 +264,7 @@ impl NativeSyncClient {
             redirect_url: [0; 512],
             response_capacity_peak: 0,
             sampled_heap_peak: 0,
+            server_time: 0,
         };
 
         let rc = unsafe {
@@ -303,6 +316,7 @@ impl NativeSyncClient {
             Vec::new()
         };
 
+        let server_time = (raw_resp.server_time > 0).then_some(raw_resp.server_time);
         let status = raw_resp.http_status as u16;
         unsafe { anki_3ds_http_response_free(&mut raw_resp) };
 
@@ -314,6 +328,7 @@ impl NativeSyncClient {
             status,
             body: body_bytes,
             redirect_url,
+            server_time,
         })
     }
 

@@ -10,7 +10,6 @@
     "Undo": "Undo",
     "Deck options": "Deck options",
     "Sync": "Sync",
-    "Time zone": "Time zone",
     "Exit": "Exit",
     "Synced": "Synced",
     "Collection synced.": "Collection synced.",
@@ -67,10 +66,6 @@
     "Reviewed today": "Reviewed today",
     "Could not open Nintendo 3DS keyboard.": "Could not open Nintendo 3DS keyboard.",
     "Connecting...": "Connecting...",
-    "UTC offset in minutes (Madrid: 120 summer, 60 winter)": "UTC offset in minutes (Madrid: 120 summer, 60 winter)",
-    "Console time zone required": "Console time zone required",
-    "Invalid UTC offset": "Invalid UTC offset",
-    "UTC offset out of range": "UTC offset out of range",
     "Daily limits for this deck.\nThe shared preset stays unchanged.\nSave applies changes. Cancel keeps previous limits.": "Daily limits for this deck.\nThe shared preset stays unchanged.\nSave applies changes. Cancel keeps previous limits.",
     "Could not open prototype.anki2. See prototype-events.txt.": "Could not open prototype.anki2. See prototype-events.txt.",
     "Language": "Language",
@@ -91,5 +86,11 @@
     "Anki 3DS - TEST SERVER": "Anki 3DS - TEST SERVER",
     "Test server username (dev)": "Test server username (dev)",
     "Test server password (disposable)": "Test server password (disposable)",
-    "Choose upload or download": "Choose upload or download"
+    "Choose upload or download": "Choose upload or download",
+    "Update clock": "Update clock",
+    "Setting clock automatically": "Setting clock automatically",
+    "Connect to Wi-Fi once. No account needed.": "Connect to Wi-Fi once. No account needed.",
+    "Clock setup failed: {0}": "Clock setup failed: {0}",
+    "Retry [A]": "Retry [A]",
+    "Clock will update when connected": "Clock will update when connected"
 }

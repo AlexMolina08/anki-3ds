@@ -1,10 +1,12 @@
 // Copyright: Anki 3DS contributors
 // License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 
+mod assets;
 mod backend;
 mod clock;
 mod i18n;
 mod sync;
+mod time_correction;
 mod ui;
 use std::collections::HashSet;
 use std::fs;
@@ -22,6 +24,7 @@ use i18n::tr;
 use ui::*;
 
 const LOG: &str = "sdmc:/3ds/anki-3ds/prototype-events.txt";
+#[cfg(feature = "emulator")]
 const TEST_SCRIPT: &str = "sdmc:/3ds/anki-3ds/test-script.txt";
 const ROW_Y: f32 = 43.0;
 const ROW_H: f32 = 24.0;
@@ -333,7 +336,7 @@ const MENU: [&str; 11] = [
     "Undo",
     "Deck options",
     "Sync",
-    "Time zone",
+    "Update clock",
     "Language",
     "Exit",
 ];
@@ -366,9 +369,10 @@ fn main() {
         )
         .init();
     i18n::init();
-    if let Err(error) = clock::configure(false) {
-        panic!("{error}");
-    }
+    let startup_error = assets::prepare()
+        .map_err(|e| e.to_string())
+        .and_then(|_| clock::configure(false, &apt, &mut hid, None))
+        .err();
     let started = Instant::now();
     let progress = std::sync::Arc::new(std::sync::Mutex::new(
         anki::progress::ProgressState::default(),
@@ -377,24 +381,35 @@ fn main() {
     let mut auth = None;
     let mut job: Option<sync::Job> = None;
     let mut exit_pending = false;
-    let mut backend = match Backend::open_with_progress(progress.clone()) {
-        Ok(b) => Some(b),
-        Err(e) => {
-            event(&format!("OPEN_ERROR {}", error_text(e.as_ref())));
-            None
+    let mut clock_job: Option<clock::Job> = None;
+    let mut next_clock_check = Instant::now();
+    let mut clock_connected = false;
+    let mut backend = if startup_error.is_some() {
+        None
+    } else {
+        match Backend::open_with_progress(progress.clone()) {
+            Ok(b) => Some(b),
+            Err(e) => {
+                event(&format!("OPEN_ERROR {}", error_text(e.as_ref())));
+                None
+            }
         }
     };
     let mut root = DeckTreeNode::default();
-    let mut screen = match backend.as_mut() {
-        Some(b) => match b.deck_tree() {
-            Ok(tree) => {
-                root = tree;
-                Screen::Decks
-            }
-            Err(e) => Screen::Error(error_text(e.as_ref())),
-        },
-        None => {
-            Screen::Error(tr("Could not open prototype.anki2. See prototype-events.txt.").into())
+    let mut screen = if let Some(error) = startup_error {
+        Screen::Error(error)
+    } else {
+        match backend.as_mut() {
+            Some(b) => match b.deck_tree() {
+                Ok(tree) => {
+                    root = tree;
+                    Screen::Decks
+                }
+                Err(e) => Screen::Error(error_text(e.as_ref())),
+            },
+            None => Screen::Error(
+                tr("Could not open prototype.anki2. See prototype-events.txt.").into(),
+            ),
         }
     };
     event(&format!(
@@ -414,6 +429,7 @@ fn main() {
     let mut bottom_max = 0usize;
     let mut last_empty_poll = Instant::now();
     let mut repeat_at = Instant::now();
+    #[cfg(feature = "emulator")]
     let script: Vec<String> = fs::read_to_string(TEST_SCRIPT)
         .unwrap_or_default()
         .lines()
@@ -421,6 +437,8 @@ fn main() {
         .filter(|s| !s.is_empty() && !s.starts_with('#'))
         .map(str::to_owned)
         .collect();
+    #[cfg(not(feature = "emulator"))]
+    let script: Vec<String> = Vec::new();
     let mut script_step = 0;
     let mut script_cooldown = 120;
     let mut last_state = String::new();
@@ -428,6 +446,35 @@ fn main() {
     let trace_touch = fs::metadata("sdmc:/3ds/anki-3ds/trace-touch").is_ok();
 
     while apt.main_loop() {
+        if let Some(result) = clock_job.as_mut().and_then(clock::Job::poll) {
+            clock_job = None;
+            match result {
+                Ok(offset) => {
+                    if let Some(backend) = backend.as_mut() {
+                        if let Err(error) = backend.set_clock_offset(offset) {
+                            event(&format!("CLOCK_OFFSET_ERROR {error}"));
+                        }
+                    }
+                }
+                Err(error) => event(&format!("CLOCK_AUTO_ERROR {error}")),
+            }
+        }
+        let connected = clock::connected();
+        if connected && !clock_connected {
+            next_clock_check = Instant::now();
+        }
+        clock_connected = connected;
+        if clock_job.is_none() && job.is_none() && connected && Instant::now() >= next_clock_check {
+            next_clock_check =
+                Instant::now() + Duration::from_secs(if clock::is_known() { 1800 } else { 60 });
+            match clock::Job::start() {
+                Ok(worker) => {
+                    clock_job = Some(worker);
+                    event("CLOCK_AUTO_START");
+                }
+                Err(error) => event(&format!("CLOCK_AUTO_ERROR {error}")),
+            }
+        }
         if let Some(done) = job.as_mut().and_then(sync::Job::poll) {
             job = None;
             backend = done.backend;
@@ -718,6 +765,7 @@ fn main() {
                     "SYNC" => Action::Sync,
                     "LANGUAGE" => Action::Language,
                     "UNDO" => Action::Undo,
+                    "CLOCK" => Action::Clock,
                     "EXIT" => Action::Exit,
                     "UP" => Action::Up,
                     "DOWN" => Action::Down,
@@ -826,7 +874,26 @@ fn main() {
                     return Ok(());
                 }
             }
+            if matches!(screen, Screen::Error(_)) && matches!(action, Action::Primary) {
+                action = Action::Clock;
+            }
             if matches!(action, Action::Sync) || full_mode.is_some() {
+                let offset = match clock::configure(true, &apt, &mut hid, clock_job.take()) {
+                    Ok(offset) => offset,
+                    Err(error) => {
+                        event(&format!("SYNC_ERROR {error}"));
+                        screen = Screen::Info {
+                            title: tr("Sync error").into(),
+                            text: error,
+                            previous: Box::new(Screen::Decks),
+                        };
+                        return Ok(());
+                    }
+                };
+                backend
+                    .as_mut()
+                    .ok_or("collection unavailable")?
+                    .set_clock_offset(offset)?;
                 if auth.is_none() {
                     if login.username.is_empty() {
                         let Some(username) = Ui::keyboard(
@@ -928,12 +995,26 @@ fn main() {
                         .set_language(card)?;
                 }
                 Action::Clock => {
-                    let offset = clock::configure(true)?;
-                    backend
-                        .as_mut()
-                        .ok_or("collection unavailable")?
-                        .set_clock_offset(offset)?;
-                    screen = Screen::Decks;
+                    let offset = match clock::configure(true, &apt, &mut hid, clock_job.take()) {
+                        Ok(offset) => offset,
+                        Err(error) => {
+                            let previous = std::mem::replace(&mut screen, Screen::Decks);
+                            screen = Screen::Info {
+                                title: tr("Update clock").into(),
+                                text: i18n::format("Clock setup failed: {0}", &[&error]),
+                                previous: Box::new(previous),
+                            };
+                            return Ok(());
+                        }
+                    };
+                    if backend.is_none() {
+                        backend = Some(Backend::open_with_progress(progress.clone())?);
+                        root = backend.as_mut().unwrap().deck_tree()?;
+                        decks.clear();
+                        collect_deck_items(&root, &collapsed, &mut decks);
+                        screen = Screen::Decks;
+                    }
+                    backend.as_mut().unwrap().set_clock_offset(offset)?;
                 }
                 Action::Help | Action::Stats => {
                     let (title, text) = match action {
@@ -1682,10 +1763,15 @@ fn main() {
             }
             Screen::Error(_) => {
                 header(320.0, tr("Error"));
-                Ui::draw_text_centered(160.0, 100.0, 0.50, COLOR_TEXT_DARK, tr("START: Exit"));
+                Ui::draw_text_centered(160.0, 90.0, 0.50, COLOR_TEXT_DARK, tr("Retry [A]"));
+                Ui::draw_text_centered(160.0, 120.0, 0.50, COLOR_TEXT_DARK, tr("START: Exit"));
             }
         }
-        footer(tr("Menu [SELECT]                      Options"));
+        footer(if clock::is_known() {
+            tr("Menu [SELECT]                      Options")
+        } else {
+            tr("Clock will update when connected")
+        });
         Ui::frame_end();
     }
     if let Some(active) = job.take() {
@@ -1693,6 +1779,7 @@ fn main() {
             backend = done.backend;
         }
     }
+    drop(clock_job);
     Ui::fini();
     if let Some(backend) = backend {
         match backend.close() {

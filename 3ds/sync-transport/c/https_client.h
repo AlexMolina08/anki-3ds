@@ -20,6 +20,7 @@ typedef struct {
     char redirect_url[512];
     size_t response_capacity_peak;
     uint32_t sampled_heap_peak;
+    int64_t server_time;
 } Anki3dsHttpResponse;
 
 // Performs an HTTPS request over native Horizon sockets with curl+mbedTLS.

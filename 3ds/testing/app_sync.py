@@ -28,6 +28,8 @@ class TLSBoundary(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     def do_POST(self):
+        if self.path == "/" and self.server.clock_delay:
+            time.sleep(self.server.clock_delay)
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
         if (
             self.server.fault == "interrupt"
@@ -104,6 +106,8 @@ def main():
     parser.add_argument("--label", default="upload")
     parser.add_argument("--keyboard", action="store_true")
     parser.add_argument("--empty", action="store_true")
+    parser.add_argument("--auto-clock", action="store_true")
+    parser.add_argument("--clock-delay", type=float, default=0)
     parser.add_argument("--full-choice-guard", action="store_true")
     parser.add_argument("--language", choices=["en", "es"], default="en")
     parser.add_argument("--screenshots", action="store_true")
@@ -185,7 +189,8 @@ def main():
         )
     )
     (sd / "language.txt").write_text(args.language)
-    (sd / "utc-offset-minutes.txt").write_text(f"{args.utc_offset}\n")
+    if not args.auto_clock:
+        (sd / "utc-offset-minutes.txt").write_text(f"{args.utc_offset}\n")
     (sd / "test-script.txt").write_text("\n".join(args.steps.split(",")) + "\n")
     config = out / "config/azahar-emu"
     config.mkdir(parents=True)
@@ -218,6 +223,7 @@ def main():
         gateway.evidence = out
         gateway.fault = args.fault
         gateway.injected = False
+        gateway.clock_delay = args.clock_delay
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         context.minimum_version = ssl.TLSVersion.TLSv1_2
         context.load_cert_chain(tls / "cert.pem", tls / "key.pem")
@@ -353,6 +359,34 @@ def main():
 
 def validate(args, out, sd, rollback_checked):
     events = (sd / "prototype-events.txt").read_text()
+    if args.auto_clock:
+        assert "CLOCK_AUTO_READY" in events
+        assert not (sd / "utc-offset-minutes.txt").exists()
+        correction = json.loads((sd / "clock-correction.json").read_text())
+        assert abs(correction["seconds"] - args.utc_offset * 60) < 30, correction
+        assert correction["minutes"] == args.utc_offset, correction
+        with sqlite3.connect(
+            f"file:{(sd / 'prototype.anki2').resolve()}?mode=ro", uri=True
+        ) as con:
+            local_offset = con.execute(
+                "select val from config where key='localOffset'"
+            ).fetchone()
+            assert json.loads(local_offset[0]) == -args.utc_offset, local_offset
+
+        assert "DECKS screen" in events
+        assert events.index("DECKS screen") < events.index("CLOCK_AUTO_READY"), events
+        (out / "clock-verification.json").write_text(
+            json.dumps(
+                {
+                    "native_auto_clock": True,
+                    "opened_before_clock_ready": True,
+                    "no_manual_offset_file": True,
+                    "correction": correction,
+                },
+                indent=2,
+            )
+            + "\n"
+        )
     if args.full_choice_guard:
         assert "SYNC_FULL_REQUIRED" in events and "SYNC_COMPLETE" not in events, events
         assert database(sd / "prototype.anki2") == database(args.fixture)

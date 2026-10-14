@@ -8,6 +8,7 @@ fn main() {
     let devkitarm = env::var("DEVKITARM").unwrap_or_else(|_| format!("{devkitpro}/devkitARM"));
 
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=../../out/3ds/https-sources/cacert.pem");
     println!("cargo:rerun-if-changed=src/ui_renderer.c");
     println!("cargo:rerun-if-changed=src/clock.c");
     println!("cargo:rerun-if-changed=src/ui_renderer.h");

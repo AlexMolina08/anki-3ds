@@ -37,6 +37,7 @@ extern "C" {
         accept: *const c_char,
     ) -> c_int;
     fn ui_init() -> bool;
+    fn ui_wifi_connected() -> bool;
     fn ui_fini();
     fn ui_frame_begin();
     fn ui_frame_end();
@@ -113,6 +114,9 @@ fn display_text(text: &str) -> Cow<'_, str> {
 pub struct Ui;
 
 impl Ui {
+    pub fn wifi_connected() -> bool {
+        unsafe { ui_wifi_connected() }
+    }
     pub fn keyboard(hint: &str, initial: &str) -> Result<Option<String>, String> {
         Self::keyboard_with_mode(hint, initial, false)
     }

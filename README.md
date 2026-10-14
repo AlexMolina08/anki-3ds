@@ -10,6 +10,8 @@ can transfer files; it is not needed while studying or connecting to AnkiWeb.
 ```mermaid
 flowchart TD
     UI[3DS interface: decks, reviews, notes, login] --> Collection[Original Anki Collection]
+    UI --> Clock[Background clock correction]
+    Clock --> Native
     Collection --> Scheduler[Original scheduler and FSRS]
     Collection --> SQLite[SQLite with Horizon SD adapter]
     Collection --> Sync[Original NormalSyncer and full sync]
@@ -23,7 +25,9 @@ flowchart TD
 ## What works
 
 Offline study, four ratings, learning-card recurrence, note creation/editing,
-search, deck limits, statistics, and undo run in Azahar's Old 3DS mode. The UI
+search, deck limits, statistics, and undo run in Azahar's Old 3DS mode.
+The app opens without a network connection or timezone setup. Clock detection runs
+in the background; failed checks preserve study and unsaved note drafts. The UI
 supports English and Spanish, selected from the console language or the menu.
 
 Collection sync uses the original engine. Login uses a masked keyboard; credentials
@@ -82,11 +86,15 @@ just old3ds-app-build
 just old3ds-app-package
 ```
 
-The package contains the executable and CA bundle. It does not replace an existing
-collection. The application opens `sdmc:/3ds/anki-3ds/prototype.anki2`, creating an empty
+The ZIP contains one executable with an embedded CA bundle. First launch creates
+its SD folder and certificate file, preserving existing files. It does not replace
+an existing collection. The application opens `sdmc:/3ds/anki-3ds/prototype.anki2`, creating an empty
 collection if the file does not exist.
-On first launch, enter the console clock's UTC offset in minutes; update it from
-Menu when daylight saving changes. For Madrid, use 120 in summer or 60 in winter.
+The app opens offline without timezone setup. It follows the console clock until
+its first successful automatic clock check, then retains that correction for
+offline use. A background worker reads UTC from a validated AnkiWeb HTTPS response
+when connected; sync refreshes it again. The displayed clock remains the console's
+local time. Menu can request an automatic clock update.
 
 ## Source layout
 
