@@ -22,3 +22,11 @@ Builds use `toolchain.sh` and preserve the upstream desktop defaults.
 
 Use disposable data during development. Generated artifacts and test results belong
 under `out/3ds/`, not in source or documentation directories.
+
+Keep probe source and Cargo lockfiles tracked: they isolate failures in text,
+SQLite, runtime dependencies, collection access, TLS and the original sync engine.
+The application also uses `https-probe/build-libs.sh` to build its native libraries.
+Keep `testing/` runners and `fixtures/` generators/verifiers so upstream test results
+can be reproduced. They contain no collection databases or release binaries.
+Generated binaries, SD images, collections, logs and archives are ignored; prefer
+`out/3ds/` for all such output. Do not ignore these source directories wholesale.

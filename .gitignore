@@ -24,3 +24,17 @@ ts/.svelte-kit
 docs/_build/
 docs/autoapi/
 .complexipy_cache
+
+# Native build products and disposable test data; retain reproducible source.
+/3ds/**/*.3dsx
+/3ds/**/*.elf
+/3ds/**/*.o
+/3ds/**/*.a
+/3ds/**/*.zip
+/3ds/**/*.anki2
+/3ds/**/*.anki2-*
+/3ds/**/*.sqlite
+/3ds/**/*.sqlite-*
+/3ds/**/*.log
+/3ds/**/build/
+/3ds/**/sdmc/
