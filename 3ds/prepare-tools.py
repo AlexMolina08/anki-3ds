@@ -12,6 +12,8 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
+from archive_utils import extract_sources
+
 ROOT = Path(__file__).resolve().parents[1]
 LOCK = json.loads((ROOT / "3ds/dependencies.json").read_text())
 TOOLS = ROOT / "out/3ds/tools"
@@ -41,7 +43,7 @@ def source(name):
     if not destination.exists():
         with tempfile.TemporaryDirectory(dir=archive.parent) as temporary:
             with tarfile.open(archive) as bundle:
-                bundle.extractall(temporary, filter="data")
+                extract_sources(bundle, temporary)
             roots = list(Path(temporary).iterdir())
             if len(roots) != 1 or not roots[0].is_dir():
                 raise RuntimeError(f"Unexpected {name} archive layout")

@@ -13,6 +13,8 @@ import tomllib
 import urllib.request
 from pathlib import Path
 
+from archive_utils import extract_sources
+
 root = Path(__file__).resolve().parents[1]
 lock = tomllib.loads((root / "Cargo.lock").read_text())
 package = next(p for p in lock["package"] if p["name"] == "coarsetime")
@@ -50,7 +52,7 @@ with tempfile.TemporaryDirectory(dir=output.parent) as temporary:
         assert all(
             Path(m.name).parts[0] == "coarsetime-0.1.36" for m in archive.getmembers()
         )
-        archive.extractall(temporary, filter="data")
+        extract_sources(archive, temporary)
     shutil.copytree(Path(temporary) / "coarsetime-0.1.36", output)
 subprocess.run(
     ["patch", "-p1", "-i", str(root / "3ds/coarsetime-horizon.patch")],

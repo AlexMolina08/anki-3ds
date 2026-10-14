@@ -7,7 +7,7 @@ source 3ds/toolchain.sh
 for tool in python3 cmake make patch protoc curl git rustup; do
     command -v "$tool" >/dev/null || { echo "Missing prerequisite: $tool" >&2; exit 1; }
 done
-python3 -c 'import sys,tarfile; assert sys.version_info >= (3, 11) and hasattr(tarfile, "data_filter"), "Python 3.11+ with current security updates required"'
+python3 -c 'import sys; assert sys.version_info >= (3, 11), "Python 3.11+ required"'
 test -f "$DEVKITPRO/libctru/lib/libctru.a" || { echo 'Install devkitPro 3ds-dev first.' >&2; exit 1; }
 rustup toolchain install "$ANKI_3DS_RUST_TOOLCHAIN" --profile minimal --component rust-src
 cargo +"$ANKI_3DS_RUST_TOOLCHAIN" install cargo-3ds --version 0.1.5 --locked
