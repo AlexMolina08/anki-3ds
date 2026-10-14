@@ -239,6 +239,7 @@ struct TextLayout {
     text: String,
     width: f32,
     lines: Vec<String>,
+    emphasis: Vec<usize>,
 }
 impl TextLayout {
     fn draw(
@@ -252,13 +253,22 @@ impl TextLayout {
     ) -> usize {
         if self.text != text || self.width != width || self.lines.is_empty() {
             self.lines = wrap_text(text, width, 0.55);
+            let mut depth = 0usize;
+            self.emphasis = self.lines.iter().map(|line| {
+                let initial = depth;
+                for ch in line.chars() {
+                    if ch == review_text::CLOZE_START { depth += 1; }
+                    else if ch == review_text::CLOZE_END { depth = depth.saturating_sub(1); }
+                }
+                initial
+            }).collect();
             self.text = text.to_owned();
             self.width = width;
         }
         let max = self.lines.len().saturating_sub(count);
         let start = scroll.min(max);
-        let mut emphasis = 0usize;
-        for (index, line) in self.lines.iter().take(start + count).enumerate() {
+        for (index, line) in self.lines.iter().enumerate().skip(start).take(count) {
+            let mut emphasis = self.emphasis[index];
             let mut x = center - Ui::get_text_width(0.55, &review_text::plain(line)) / 2.0;
             let mut run = String::new();
             for ch in line.chars().chain(std::iter::once('\0')) {
