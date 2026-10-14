@@ -4,7 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 apt-get update
-apt-get install -y --no-install-recommends protobuf-compiler libssl-dev pkg-config
+apt-get install -y --no-install-recommends python3 protobuf-compiler libssl-dev pkg-config
 git config --global --add safe.directory "$PWD"
 if ! command -v rustup >/dev/null; then
     curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs -o /tmp/anki-rustup.sh
