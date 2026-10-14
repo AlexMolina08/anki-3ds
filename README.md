@@ -86,7 +86,8 @@ Install:
 
 - devkitPro's `3ds-dev` group, including devkitARM, libctru, Citro2D and Citro3D;
 - Rustup, Python 3.11 with current security updates, CMake 3.28+, a host C/C++
-  compiler, Make, Patch, Git, curl, protoc and just 1.58.0.
+  compiler, Clang/libclang (for Rust bindings), Make, Patch, Git, curl, protoc
+  and just 1.58.0.
 
 The development machine uses devkitARM r68/GCC 16.1.0, libctru 2.7.0, Citro2D
 1.7.0 and Citro3D 1.7.1. Set `DEVKITPRO` if it is not installed at
