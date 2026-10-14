@@ -1,27 +1,40 @@
 // Copyright: Ankitects Pty Ltd and contributors
 // License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 
+#[cfg(feature = "network")]
 use reqwest::Client;
+#[cfg(feature = "incremental-sync")]
 use tracing::debug;
 
+#[cfg(feature = "incremental-sync")]
 use crate::collection::Collection;
+#[cfg(feature = "incremental-sync")]
 use crate::error;
+#[cfg(feature = "incremental-sync")]
 use crate::error::AnkiError;
+#[cfg(feature = "incremental-sync")]
 use crate::error::SyncError;
+#[cfg(feature = "incremental-sync")]
 use crate::error::SyncErrorKind;
 use crate::prelude::Usn;
+#[cfg(feature = "incremental-sync")]
 use crate::progress::ThrottlingProgressHandler;
 use crate::sync::collection::progress::SyncStage;
+#[cfg(feature = "incremental-sync")]
 use crate::sync::collection::protocol::EmptyInput;
-use crate::sync::collection::protocol::SyncProtocol;
+#[cfg(feature = "incremental-sync")]
 use crate::sync::collection::status::online_sync_status_check;
+#[cfg(feature = "network")]
 use crate::sync::http_client::HttpSyncClient;
+#[cfg(feature = "network")]
 use crate::sync::login::SyncAuth;
+#[cfg(feature = "incremental-sync")]
 use crate::sync::request::MAXIMUM_SYNC_PAYLOAD_BYTES_UNCOMPRESSED;
 
-pub struct NormalSyncer<'a> {
+#[cfg(feature = "incremental-sync")]
+pub struct NormalSyncer<'a, P: crate::sync::collection::protocol::SyncClient> {
     pub(in crate::sync) col: &'a mut Collection,
-    pub(in crate::sync) server: HttpSyncClient,
+    pub(in crate::sync) server: P,
     pub(in crate::sync) progress: ThrottlingProgressHandler<NormalSyncProgress>,
 }
 
@@ -57,8 +70,9 @@ pub struct ClientSyncState {
     pub(in crate::sync) server_media_usn: Usn,
 }
 
-impl NormalSyncer<'_> {
-    pub fn new(col: &mut Collection, server: HttpSyncClient) -> NormalSyncer<'_> {
+#[cfg(feature = "incremental-sync")]
+impl<P: crate::sync::collection::protocol::SyncClient> NormalSyncer<'_, P> {
+    pub fn new(col: &mut Collection, server: P) -> NormalSyncer<'_, P> {
         NormalSyncer {
             progress: col.new_progress_handler(),
             col,
@@ -71,7 +85,7 @@ impl NormalSyncer<'_> {
         let local = self.col.sync_meta()?;
         let local_bytes = local.collection_bytes;
         let limit = *MAXIMUM_SYNC_PAYLOAD_BYTES_UNCOMPRESSED;
-        if self.server.endpoint.as_str().contains("ankiweb") && local.collection_bytes > limit {
+        if self.server.endpoint().as_str().contains("ankiweb") && local.collection_bytes > limit {
             return Err(AnkiError::sync_error(
                 format!("{local_bytes} > {limit}"),
                 SyncErrorKind::UploadTooLarge,
@@ -144,6 +158,7 @@ impl NormalSyncer<'_> {
 }
 
 #[derive(Debug)]
+#[cfg(feature = "incremental-sync")]
 pub struct SyncOutput {
     pub required: SyncActionRequired,
     pub server_message: String,
@@ -153,6 +168,7 @@ pub struct SyncOutput {
     pub(crate) server_media_usn: Usn,
 }
 
+#[cfg(feature = "incremental-sync")]
 impl From<ClientSyncState> for SyncOutput {
     fn from(s: ClientSyncState) -> Self {
         SyncOutput {
@@ -165,6 +181,7 @@ impl From<ClientSyncState> for SyncOutput {
     }
 }
 
+#[cfg(feature = "network")]
 impl Collection {
     pub async fn normal_sync(
         &mut self,
@@ -174,5 +191,17 @@ impl Collection {
         NormalSyncer::new(self, HttpSyncClient::new(auth, client))
             .sync()
             .await
+    }
+}
+
+#[cfg(feature = "incremental-sync")]
+impl Collection {
+    /// Run the original incremental driver with a platform-specific protocol
+    /// client.
+    pub async fn normal_sync_with_client<P: crate::sync::collection::protocol::SyncClient>(
+        &mut self,
+        client: P,
+    ) -> error::Result<SyncOutput> {
+        NormalSyncer::new(self, client).sync().await
     }
 }

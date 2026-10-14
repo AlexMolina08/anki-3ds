@@ -1,11 +1,9 @@
 // Copyright: Ankitects Pty Ltd and contributors
 // License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 
-use anki_io::atomic_rename;
-use anki_io::new_tempfile_in_parent_of;
 use anki_io::read_file;
+#[cfg(feature = "network")]
 use reqwest::Client;
-use tokio::io::BufWriter;
 
 use crate::collection::CollectionBuilder;
 use crate::prelude::*;
@@ -13,38 +11,44 @@ use crate::storage::SchemaVersion;
 use crate::sync::collection::protocol::EmptyInput;
 use crate::sync::error::HttpResult;
 use crate::sync::error::OrHttpErr;
+#[cfg(feature = "network")]
 use crate::sync::http_client::HttpSyncClient;
+#[cfg(feature = "network")]
 use crate::sync::login::SyncAuth;
 
 impl Collection {
+    #[cfg(feature = "network")]
     /// Download collection from AnkiWeb. Caller must re-open afterwards.
     pub async fn full_download(self, auth: SyncAuth, client: Client) -> Result<()> {
         self.full_download_with_server(HttpSyncClient::new(auth, client))
             .await
     }
 
+    #[cfg(feature = "network")]
     // pub for tests
     pub(super) async fn full_download_with_server(self, server: HttpSyncClient) -> Result<()> {
+        self.full_download_with_client(server).await
+    }
+
+    #[cfg(feature = "incremental-sync")]
+    pub async fn full_download_with_client<P: super::protocol::FullSyncClient>(
+        self,
+        server: P,
+    ) -> Result<()> {
         let col_path = self.col_path.clone();
         let _col_folder = col_path.parent().or_invalid("couldn't get col_folder")?;
         let progress = self.new_progress_handler();
         self.close(None)?;
-        // stream straight to disk, so large collections don't need to fit in memory
-        let temp_file = new_tempfile_in_parent_of(&col_path)?;
-        {
-            let file = tokio::fs::File::from_std(temp_file.as_file().try_clone()?);
-            let mut writer = BufWriter::with_capacity(1024 * 1024, file);
-            server
-                .download_into_with_progress(EmptyInput::request(), progress, &mut writer)
-                .await?;
-        }
-        // check file ok
+        let temp_file = server.new_download_file(&col_path)?;
+        server
+            .download_file(EmptyInput::request(), temp_file.path(), progress)
+            .await?;
         let col = CollectionBuilder::new(temp_file.path())
             .set_check_integrity(true)
             .build()?;
         col.storage.db.execute_batch("update col set ls=mod")?;
         col.close(None)?;
-        atomic_rename(temp_file, &col_path, true)?;
+        server.replace_download(temp_file, &col_path)?;
         Ok(())
     }
 }

@@ -2,4 +2,5 @@
 // License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 
 pub mod client;
+#[cfg(feature = "network")]
 pub mod server;

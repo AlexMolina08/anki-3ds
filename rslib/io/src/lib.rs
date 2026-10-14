@@ -351,7 +351,8 @@ pub fn write_file_if_changed(path: impl AsRef<Path>, contents: impl AsRef<[u8]>)
 
     match std::env::var("CARGO_PKG_NAME") {
         Ok(pkg) if pkg == "anki_proto" || pkg == "anki_i18n" => {
-            // at comptime for the proto/i18n crates, register implicit output as input
+            // at comptime for the proto/i18n crates, register implicit output
+            // as input
             println!("cargo:rerun-if-changed={}", path.to_str().unwrap());
         }
         _ => {}
@@ -380,6 +381,42 @@ pub fn is_case_sensitive(dir: &Path) -> bool {
         }
     }
     cfg!(unix) && !cfg!(target_os = "macos")
+}
+
+/// Resolve a native SD filename's stored spelling. Horizon's realpath preserves
+/// the requested case, and its stat inode fields do not identify distinct
+/// files. SD has no symlinks or hard links; directory entries supply the file
+/// identity.
+#[cfg(target_os = "horizon")]
+pub fn canonical_sd_file(path: &Path) -> std::io::Result<PathBuf> {
+    let absolute = std::fs::canonicalize(path)?;
+    let parent = absolute
+        .parent()
+        .ok_or_else(|| std::io::Error::other("file has no parent"))?;
+    let name = absolute
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| std::io::Error::other("filename is not UTF-8"))?;
+    let mut matching = None;
+    for entry in std::fs::read_dir(parent)? {
+        let entry = entry?;
+        let stored = entry.file_name();
+        if stored == name {
+            return Ok(entry.path());
+        }
+        if stored
+            .to_str()
+            .is_some_and(|s| s.to_lowercase() == name.to_lowercase())
+        {
+            if matching.is_some() {
+                return Err(std::io::Error::other(
+                    "ambiguous case-insensitive SD filename",
+                ));
+            }
+            matching = Some(entry.path());
+        }
+    }
+    matching.ok_or_else(|| std::io::Error::from(std::io::ErrorKind::NotFound))
 }
 
 pub trait ToUtf8PathBuf {

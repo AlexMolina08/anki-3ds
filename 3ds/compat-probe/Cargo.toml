@@ -1,0 +1,20 @@
+[package]
+name = "anki-3ds-compat-probe"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[workspace]
+
+[features]
+clock = ["dep:coarsetime"]
+runtime = ["dep:tokio", "tokio/fs", "tokio/rt-multi-thread", "tokio/macros"]
+network = ["runtime", "tokio/net"]
+signals = ["runtime", "tokio/signal"]
+
+[dependencies]
+coarsetime = { version = "=0.1.36", optional = true }
+# Use the same libc interface as the original backend's Cargo.lock.
+libc = "=0.2.175"
+tokio = { version = "=1.47.1", default-features = false, optional = true }

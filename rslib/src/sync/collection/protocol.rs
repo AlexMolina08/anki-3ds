@@ -91,6 +91,25 @@ pub trait SyncProtocol: Send + Sync + 'static {
     async fn download(&self, req: SyncRequest<EmptyInput>) -> HttpResult<SyncResponse<Vec<u8>>>;
 }
 
+/// Client endpoint control used by the original incremental sync driver.
+/// Protocol operations remain in SyncProtocol; this only handles routing.
+pub trait SyncClient: SyncProtocol {
+    fn endpoint(&self) -> &Url;
+    fn set_endpoint(&mut self, endpoint: Url) -> crate::prelude::Result<()>;
+}
+
+#[cfg(feature = "network")]
+impl SyncClient for crate::sync::http_client::HttpSyncClient {
+    fn endpoint(&self) -> &Url {
+        &self.endpoint
+    }
+
+    fn set_endpoint(&mut self, endpoint: Url) -> crate::prelude::Result<()> {
+        self.endpoint = endpoint;
+        Ok(())
+    }
+}
+
 /// The sync protocol expects '{}' to be sent in requests without args.
 /// Serde serializes/deserializes empty structs as 'null', so we add an empty
 /// value to cause it to produce a map instead. This only applies to inputs;
@@ -108,5 +127,75 @@ impl EmptyInput {
             .try_into_sync_request()
             // should be infallible
             .expect("empty input into request")
+    }
+}
+
+#[cfg(feature = "incremental-sync")]
+#[async_trait]
+pub trait FullSyncClient: SyncClient {
+    fn new_download_file(
+        &self,
+        target: &std::path::Path,
+    ) -> crate::prelude::Result<tempfile::NamedTempFile> {
+        Ok(anki_io::new_tempfile_in_parent_of(target)?)
+    }
+
+    async fn upload_file(
+        &self,
+        path: &std::path::Path,
+        progress: crate::progress::ThrottlingProgressHandler<super::progress::FullSyncProgress>,
+    ) -> HttpResult<SyncResponse<UploadResponse>>;
+
+    async fn download_file(
+        &self,
+        request: SyncRequest<EmptyInput>,
+        path: &std::path::Path,
+        progress: crate::progress::ThrottlingProgressHandler<super::progress::FullSyncProgress>,
+    ) -> HttpResult<()>;
+
+    fn replace_download(
+        &self,
+        file: tempfile::NamedTempFile,
+        target: &std::path::Path,
+    ) -> crate::prelude::Result<()> {
+        anki_io::atomic_rename(file, target, true)?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "network")]
+#[async_trait]
+impl FullSyncClient for crate::sync::http_client::HttpSyncClient {
+    async fn upload_file(
+        &self,
+        path: &std::path::Path,
+        progress: crate::progress::ThrottlingProgressHandler<super::progress::FullSyncProgress>,
+    ) -> HttpResult<SyncResponse<UploadResponse>> {
+        use crate::sync::error::OrHttpErr;
+        let data = std::fs::read(path).or_internal_err("read collection")?;
+        self.upload_with_progress(
+            data.try_into_sync_request()
+                .or_internal_err("upload request")?,
+            progress,
+        )
+        .await
+    }
+
+    async fn download_file(
+        &self,
+        request: SyncRequest<EmptyInput>,
+        path: &std::path::Path,
+        progress: crate::progress::ThrottlingProgressHandler<super::progress::FullSyncProgress>,
+    ) -> HttpResult<()> {
+        use crate::sync::error::OrHttpErr;
+        let file = std::fs::OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(path)
+            .or_internal_err("open collection download")?;
+        let mut writer =
+            tokio::io::BufWriter::with_capacity(1024 * 1024, tokio::fs::File::from_std(file));
+        self.download_into_with_progress(request, progress, &mut writer)
+            .await
     }
 }

@@ -3,7 +3,9 @@
 
 pub mod collection;
 pub mod error;
+#[cfg(feature = "network")]
 pub mod http_client;
+#[cfg(feature = "network")]
 pub mod http_server;
 pub mod login;
 pub mod media;

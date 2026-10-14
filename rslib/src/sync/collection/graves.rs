@@ -5,7 +5,9 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::prelude::*;
+#[cfg(feature = "incremental-sync")]
 use crate::sync::collection::chunks::CHUNK_SIZE;
+#[cfg(feature = "incremental-sync")]
 use crate::sync::collection::start::ServerSyncState;
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -20,6 +22,7 @@ pub struct Graves {
     pub(crate) notes: Vec<NoteId>,
 }
 
+#[cfg(feature = "incremental-sync")]
 impl Graves {
     pub(in crate::sync) fn take_chunk(&mut self) -> Option<Graves> {
         let mut limit = CHUNK_SIZE;
@@ -62,6 +65,7 @@ impl Collection {
     }
 }
 
+#[cfg(feature = "incremental-sync")]
 pub fn server_apply_graves(
     req: ApplyGravesRequest,
     col: &mut Collection,

@@ -11,11 +11,12 @@ use crate::sync::collection::chunks::ChunkableIds;
 use crate::sync::collection::graves::ApplyGravesRequest;
 use crate::sync::collection::graves::Graves;
 use crate::sync::collection::normal::ClientSyncState;
+#[cfg(feature = "incremental-sync")]
 use crate::sync::collection::normal::NormalSyncer;
-use crate::sync::collection::protocol::SyncProtocol;
 use crate::sync::request::IntoSyncRequest;
 
-impl NormalSyncer<'_> {
+#[cfg(feature = "incremental-sync")]
+impl<P: crate::sync::collection::protocol::SyncClient> NormalSyncer<'_, P> {
     pub(in crate::sync) async fn start_and_process_deletions(
         &mut self,
         state: &ClientSyncState,

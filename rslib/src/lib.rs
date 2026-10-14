@@ -2,9 +2,11 @@
 // License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 
 #![deny(unused_must_use)]
+#![cfg_attr(not(feature = "network"), allow(dead_code))]
 
 pub mod adding;
 pub(crate) mod ankidroid;
+#[cfg(feature = "network")]
 pub mod ankihub;
 pub mod backend;
 pub mod browser_table;
@@ -16,6 +18,7 @@ pub mod config;
 pub mod dbcheck;
 pub mod deckconfig;
 pub mod decks;
+#[cfg(feature = "network")]
 pub mod editor;
 pub mod error;
 pub mod findreplace;
@@ -32,7 +35,7 @@ pub mod notetype;
 pub mod ops;
 mod preferences;
 pub mod prelude;
-mod progress;
+pub mod progress;
 pub mod revlog;
 pub mod scheduler;
 pub mod search;
@@ -50,6 +53,7 @@ pub mod timestamp;
 mod typeanswer;
 pub mod types;
 pub mod undo;
+#[cfg(feature = "network")]
 mod updates;
 pub mod version;
 

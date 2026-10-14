@@ -2,11 +2,12 @@
 // License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 
 use anki_i18n::I18n;
-use reqwest::StatusCode;
+use http::StatusCode;
 use snafu::Snafu;
 
 use super::AnkiError;
 use crate::sync::collection::sanity::SanityCheckCounts;
+#[cfg(feature = "incremental-sync")]
 use crate::sync::error::HttpError;
 
 #[derive(Debug, PartialEq, Eq, Snafu)]
@@ -65,6 +66,7 @@ impl AnkiError {
     }
 }
 
+#[cfg(feature = "network")]
 impl From<&reqwest::Error> for AnkiError {
     fn from(err: &reqwest::Error) -> Self {
         let url = err.url().map(|url| url.as_str()).unwrap_or("");
@@ -87,14 +89,16 @@ impl From<&reqwest::Error> for AnkiError {
     }
 }
 
+#[cfg(feature = "network")]
 impl From<reqwest::Error> for AnkiError {
     fn from(err: reqwest::Error) -> Self {
         (&err).into()
     }
 }
 
-fn error_for_status_code(info: String, code: StatusCode) -> AnkiError {
-    use reqwest::StatusCode as S;
+#[cfg(feature = "incremental-sync")]
+pub fn error_for_status_code(info: String, code: StatusCode) -> AnkiError {
+    use StatusCode as S;
     match code {
         S::PROXY_AUTHENTICATION_REQUIRED => AnkiError::NetworkError {
             source: NetworkError {
@@ -143,6 +147,7 @@ fn error_for_status_code(info: String, code: StatusCode) -> AnkiError {
     }
 }
 
+#[cfg(feature = "network")]
 fn guess_reqwest_error(mut info: String) -> AnkiError {
     if info.contains("dns error: cancelled") {
         return AnkiError::Interrupted;
@@ -215,15 +220,25 @@ impl NetworkError {
 
 // This needs rethinking; we should be attaching error context as errors are
 // encountered instead of trying to determine the problem later.
+#[cfg(feature = "incremental-sync")]
 impl From<HttpError> for AnkiError {
-    fn from(err: HttpError) -> Self {
+    fn from(mut err: HttpError) -> Self {
+        if err
+            .source
+            .as_ref()
+            .is_some_and(|source| source.is::<AnkiError>())
+        {
+            return *err.source.take().unwrap().downcast::<AnkiError>().unwrap();
+        }
+        #[cfg(feature = "network")]
         if let Some(reqwest_error) = err
             .source
             .as_ref()
             .and_then(|source| source.downcast_ref::<reqwest::Error>())
         {
-            reqwest_error.into()
-        } else if err.code == StatusCode::REQUEST_TIMEOUT {
+            return reqwest_error.into();
+        }
+        if err.code == StatusCode::REQUEST_TIMEOUT {
             NetworkError {
                 info: String::new(),
                 kind: NetworkErrorKind::Timeout,
@@ -236,6 +251,7 @@ impl From<HttpError> for AnkiError {
 }
 
 #[cfg(test)]
+#[cfg(feature = "network")]
 mod test {
     use super::*;
 

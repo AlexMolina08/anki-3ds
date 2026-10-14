@@ -13,6 +13,7 @@ impl BackendImportExportService for Backend {
         &self,
         input: anki_proto::import_export::ExportCollectionPackageRequest,
     ) -> Result<()> {
+        #[cfg(feature = "network")]
         self.abort_media_sync_and_wait();
 
         let mut guard = self.lock_open_collection()?;

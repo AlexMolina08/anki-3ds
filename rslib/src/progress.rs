@@ -22,6 +22,7 @@ use crate::sync::collection::progress::FullSyncProgress;
 use crate::sync::collection::progress::SyncStage;
 use crate::sync::media::progress::MediaCheckProgress;
 use crate::sync::media::progress::MediaSyncProgress;
+#[cfg(feature = "network")]
 use crate::updates::DownloadUpdateProgress;
 
 /// Stores progress state that can be updated cheaply, and will update a
@@ -61,7 +62,7 @@ impl<P: Into<Progress> + Default + Clone> ThrottlingProgressHandler<P> {
     }
 
     /// Mutate the currently-stored state, and maybe update shared state.
-    pub(crate) fn update(&mut self, throttle: bool, mutator: impl FnOnce(&mut P)) -> Result<()> {
+    pub fn update(&mut self, throttle: bool, mutator: impl FnOnce(&mut P)) -> Result<()> {
         mutator(&mut self.state);
 
         let now = coarsetime::Instant::now();
@@ -142,6 +143,7 @@ pub enum Progress {
     ComputeParams(ComputeParamsProgress),
     ComputeRetention(ComputeRetentionProgress),
     ComputeMemory(ComputeMemoryProgress),
+    #[cfg(feature = "network")]
     DownloadUpdate(DownloadUpdateProgress),
 }
 
@@ -242,6 +244,7 @@ pub(crate) fn progress_to_proto(
                         .into(),
                 })
             }
+            #[cfg(feature = "network")]
             Progress::DownloadUpdate(progress) => {
                 Value::DownloadUpdate(anki_proto::collection::DownloadUpdateProgress {
                     downloaded_bytes: progress.downloaded_bytes as u32,
@@ -329,6 +332,7 @@ impl From<ComputeMemoryProgress> for Progress {
     }
 }
 
+#[cfg(feature = "network")]
 impl From<DownloadUpdateProgress> for Progress {
     fn from(p: DownloadUpdateProgress) -> Self {
         Progress::DownloadUpdate(p)

@@ -17,9 +17,9 @@ use crate::serde::deserialize_int_from_number;
 use crate::storage::card::data::card_data_string;
 use crate::storage::card::data::CardData;
 use crate::sync::collection::normal::ClientSyncState;
+#[cfg(feature = "incremental-sync")]
 use crate::sync::collection::normal::NormalSyncer;
 use crate::sync::collection::protocol::EmptyInput;
-use crate::sync::collection::protocol::SyncProtocol;
 use crate::sync::collection::start::ServerSyncState;
 use crate::sync::request::IntoSyncRequest;
 use crate::tags::join_tags;
@@ -86,7 +86,8 @@ pub struct CardEntry {
     pub data: String,
 }
 
-impl NormalSyncer<'_> {
+#[cfg(feature = "incremental-sync")]
+impl<P: crate::sync::collection::protocol::SyncClient> NormalSyncer<'_, P> {
     pub(in crate::sync) async fn process_chunks_from_server(
         &mut self,
         state: &ClientSyncState,

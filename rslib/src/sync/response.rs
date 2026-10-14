@@ -3,10 +3,13 @@
 
 use std::marker::PhantomData;
 
+#[cfg(feature = "network")]
 use axum::body::Body;
+#[cfg(feature = "network")]
 use axum::response::IntoResponse;
+#[cfg(feature = "network")]
 use axum::response::Response;
-use axum_extra::headers::HeaderName;
+use http::header::HeaderName;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
@@ -14,7 +17,9 @@ use crate::prelude::*;
 use crate::sync::collection::upload::UploadResponse;
 use crate::sync::error::HttpResult;
 use crate::sync::error::OrHttpErr;
+#[cfg(feature = "network")]
 use crate::sync::request::header_and_stream::encode_zstd_body;
+#[cfg(feature = "network")]
 use crate::sync::version::SyncVersion;
 
 pub static ORIGINAL_SIZE: HeaderName = HeaderName::from_static("anki-original-size");
@@ -36,6 +41,7 @@ impl<T> SyncResponse<T> {
         }
     }
 
+    #[cfg(feature = "network")]
     pub fn make_response(self, sync_version: SyncVersion) -> Response {
         if sync_version.is_zstd() {
             let header = (&ORIGINAL_SIZE, self.data.len().to_string());

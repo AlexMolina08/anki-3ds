@@ -95,6 +95,7 @@ dependencies = [
  "futures",
  "hex",
  "htmlescape",
+ "http",
  "hyper",
  "id_tree",
  "inflections",

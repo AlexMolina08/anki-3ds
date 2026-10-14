@@ -2,13 +2,18 @@
 // License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 
 use anki_proto::sync::sync_status_response;
+#[cfg(feature = "incremental-sync")]
 use tracing::debug;
 
+#[cfg(feature = "incremental-sync")]
 use crate::error::SyncErrorKind;
 use crate::prelude::*;
+#[cfg(feature = "incremental-sync")]
 use crate::sync::collection::meta::SyncMeta;
+#[cfg(feature = "incremental-sync")]
 use crate::sync::collection::normal::ClientSyncState;
-use crate::sync::http_client::HttpSyncClient;
+#[cfg(feature = "incremental-sync")]
+use crate::sync::collection::protocol::SyncClient;
 
 impl Collection {
     /// Checks local collection only. If local collection is clean but changes
@@ -16,9 +21,10 @@ impl Collection {
     pub fn sync_status_offline(&mut self) -> Result<sync_status_response::Required> {
         let stamps = self.storage.get_collection_timestamps()?;
         let required = if stamps.never_synced() {
-            // A collection that has never synced can't know its true state without
-            // consulting the server; reporting FullSync here would otherwise stick
-            // permanently when both sides are empty (mod=0 on both ends).
+            // A collection that has never synced can't know its true state
+            // without consulting the server; reporting FullSync
+            // here would otherwise stick permanently when both
+            // sides are empty (mod=0 on both ends).
             sync_status_response::Required::NoChanges
         } else if stamps.schema_changed_since_sync() {
             sync_status_response::Required::FullSync
@@ -39,11 +45,12 @@ impl Collection {
 /// This routine is outside of the collection, as we don't want to block
 /// collection access for a potentially slow network request that happens in the
 /// background.
-pub async fn online_sync_status_check(
+#[cfg(feature = "incremental-sync")]
+pub async fn online_sync_status_check<P: SyncClient>(
     local: SyncMeta,
-    server: &mut HttpSyncClient,
+    server: &mut P,
 ) -> Result<ClientSyncState, AnkiError> {
-    let (remote, new_endpoint) = server.meta_with_redirect().await?;
+    let (remote, new_endpoint) = crate::sync::collection::meta::meta_with_redirect(server).await?;
     debug!(?remote, "meta");
     debug!(?local, "meta");
     if !remote.should_continue {

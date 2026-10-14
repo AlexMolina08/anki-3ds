@@ -17,6 +17,8 @@ pub use db::DbError;
 pub use db::DbErrorKind;
 pub use filtered::CustomStudyError;
 pub use filtered::FilteredDeckError;
+#[cfg(feature = "incremental-sync")]
+pub use network::error_for_status_code;
 pub use network::NetworkError;
 pub use network::NetworkErrorKind;
 pub use network::SyncError;

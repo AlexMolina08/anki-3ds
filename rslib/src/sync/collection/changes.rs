@@ -19,8 +19,8 @@ use crate::error::SyncErrorKind;
 use crate::notetype::NotetypeSchema11;
 use crate::prelude::*;
 use crate::sync::collection::normal::ClientSyncState;
+#[cfg(feature = "incremental-sync")]
 use crate::sync::collection::normal::NormalSyncer;
-use crate::sync::collection::protocol::SyncProtocol;
 use crate::sync::collection::start::ServerSyncState;
 use crate::sync::request::IntoSyncRequest;
 use crate::tags::Tag;
@@ -51,7 +51,8 @@ pub struct DecksAndConfig {
     config: Vec<DeckConfSchema11>,
 }
 
-impl NormalSyncer<'_> {
+#[cfg(feature = "incremental-sync")]
+impl<P: crate::sync::collection::protocol::SyncClient> NormalSyncer<'_, P> {
     // This was assumed to a cheap operation when originally written - it didn't
     // anticipate the large deck trees and note types some users would create.
     // They should be chunked in the future, like other objects. Syncing tags

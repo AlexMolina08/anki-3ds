@@ -16,7 +16,19 @@ use inflections::Inflect;
 use itertools::Itertools;
 use prost_reflect::DescriptorPool;
 
+/// Backend services that require an HTTP client. They are omitted when rslib is
+/// built without its "network" feature; calling them then fails as an unknown
+/// service instead of linking networking code.
+const NETWORK_BACKEND_SERVICES: &[&str] = &[
+    "BackendAnkiHubService",
+    "BackendAnkiwebService",
+    "BackendGithubService",
+    "BackendMediaService",
+    "BackendSyncService",
+];
+
 pub fn write_rust_interface(pool: &DescriptorPool) -> Result<()> {
+    let network_enabled = env::var_os("CARGO_FEATURE_NETWORK").is_some();
     let mut buf = String::new();
     buf.push_str("use crate::error::Result; use prost::Message;");
 
@@ -28,6 +40,7 @@ pub fn write_rust_interface(pool: &DescriptorPool) -> Result<()> {
     let backend_services = backend_services
         .into_iter()
         .filter(|s| s.name != "BackendFrontendService")
+        .filter(|s| network_enabled || !NETWORK_BACKEND_SERVICES.contains(&s.name.as_str()))
         .collect_vec();
 
     render_collection_services(&col_services, &mut buf)?;

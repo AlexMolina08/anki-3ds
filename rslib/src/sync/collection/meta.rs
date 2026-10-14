@@ -3,7 +3,7 @@
 
 use ammonia::Url;
 use anki_io::metadata;
-use axum::http::StatusCode;
+use http::StatusCode;
 use serde::Deserialize;
 use serde::Serialize;
 use tracing::debug;
@@ -13,11 +13,9 @@ use crate::config::SchedulerVersion;
 use crate::prelude::*;
 use crate::sync::collection::normal::ClientSyncState;
 use crate::sync::collection::normal::SyncActionRequired;
-use crate::sync::collection::protocol::SyncProtocol;
 use crate::sync::error::HttpError;
 use crate::sync::error::HttpResult;
 use crate::sync::error::OrHttpErr;
-use crate::sync::http_client::HttpSyncClient;
 use crate::sync::request::IntoSyncRequest;
 use crate::sync::request::SyncRequest;
 use crate::sync::request::MAXIMUM_SYNC_PAYLOAD_BYTES_UNCOMPRESSED;
@@ -90,31 +88,29 @@ impl SyncMeta {
     }
 }
 
-impl HttpSyncClient {
-    /// Fetch server meta. Returns a new endpoint if one was provided.
-    pub(in crate::sync) async fn meta_with_redirect(
-        &mut self,
-    ) -> Result<(SyncMeta, Option<String>)> {
-        let mut new_endpoint = None;
-        let response = match self.meta(MetaRequest::request()).await {
-            Ok(remote) => remote,
-            Err(HttpError {
-                code: StatusCode::PERMANENT_REDIRECT,
-                context,
-                ..
-            }) => {
-                debug!(endpoint = context, "redirect to new location");
-                let url = Url::try_from(context.as_str())
-                    .or_bad_request("couldn't parse new location")?;
-                new_endpoint = Some(context);
-                self.endpoint = url;
-                self.meta(MetaRequest::request()).await?
-            }
-            err => err?,
-        };
-        let remote = response.json()?;
-        Ok((remote, new_endpoint))
-    }
+#[cfg(feature = "incremental-sync")]
+pub(super) async fn meta_with_redirect<P: crate::sync::collection::protocol::SyncClient>(
+    server: &mut P,
+) -> Result<(SyncMeta, Option<String>)> {
+    let mut new_endpoint = None;
+    let response = match server.meta(MetaRequest::request()).await {
+        Ok(remote) => remote,
+        Err(HttpError {
+            code: StatusCode::PERMANENT_REDIRECT,
+            context,
+            ..
+        }) => {
+            debug!(endpoint = context, "redirect to new location");
+            let url =
+                Url::try_from(context.as_str()).or_bad_request("couldn't parse new location")?;
+            new_endpoint = Some(context);
+            server.set_endpoint(url)?;
+            server.meta(MetaRequest::request()).await?
+        }
+        err => err?,
+    };
+    let remote = response.json()?;
+    Ok((remote, new_endpoint))
 }
 
 #[derive(Serialize, Deserialize, Debug)]

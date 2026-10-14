@@ -1,14 +1,19 @@
 // Copyright: Ankitects Pty Ltd and contributors
 // License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 
+use ammonia::Url;
+#[cfg(feature = "network")]
 use reqwest::Client;
-use reqwest::Url;
 use serde::Deserialize;
 use serde::Serialize;
 
+#[cfg(feature = "network")]
 use crate::prelude::*;
+#[cfg(feature = "network")]
 use crate::sync::collection::protocol::SyncProtocol;
+#[cfg(feature = "network")]
 use crate::sync::http_client::HttpSyncClient;
+#[cfg(feature = "network")]
 use crate::sync::request::IntoSyncRequest;
 
 #[derive(Clone, Default)]
@@ -31,6 +36,7 @@ pub struct HostKeyResponse {
     pub key: String,
 }
 
+#[cfg(feature = "network")]
 pub async fn sync_login<S: Into<String>>(
     username: S,
     password: S,
@@ -56,6 +62,30 @@ pub async fn sync_login<S: Into<String>>(
     Ok(SyncAuth {
         hkey: resp.key,
         endpoint: None,
+        io_timeout_secs: None,
+    })
+}
+
+#[cfg(feature = "incremental-sync")]
+pub async fn sync_login_with_client<P: crate::sync::collection::protocol::SyncClient>(
+    username: &str,
+    password: &str,
+    client: &P,
+) -> crate::prelude::Result<SyncAuth> {
+    use crate::sync::request::IntoSyncRequest;
+    let response = client
+        .host_key(
+            HostKeyRequest {
+                username: username.into(),
+                password: password.into(),
+            }
+            .try_into_sync_request()?,
+        )
+        .await?
+        .json()?;
+    Ok(SyncAuth {
+        hkey: response.key,
+        endpoint: Some(client.endpoint().clone()),
         io_timeout_secs: None,
     })
 }

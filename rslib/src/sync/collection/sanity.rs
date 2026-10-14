@@ -4,14 +4,17 @@
 use serde::Deserialize;
 use serde::Serialize;
 use serde_tuple::Serialize_tuple;
+#[cfg(feature = "incremental-sync")]
 use tracing::debug;
 use tracing::info;
 
+#[cfg(feature = "incremental-sync")]
 use crate::error::SyncErrorKind;
 use crate::prelude::*;
 use crate::serde::default_on_invalid;
+#[cfg(feature = "incremental-sync")]
 use crate::sync::collection::normal::NormalSyncer;
-use crate::sync::collection::protocol::SyncProtocol;
+#[cfg(feature = "incremental-sync")]
 use crate::sync::request::IntoSyncRequest;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -50,7 +53,8 @@ pub struct SanityCheckDueCounts {
     pub review: u32,
 }
 
-impl NormalSyncer<'_> {
+#[cfg(feature = "incremental-sync")]
+impl<P: crate::sync::collection::protocol::SyncClient> NormalSyncer<'_, P> {
     /// Caller should force full sync after rolling back.
     pub(in crate::sync) async fn sanity_check(&mut self) -> Result<()> {
         let local_counts = self.col.storage.sanity_check_info()?;

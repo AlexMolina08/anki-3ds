@@ -6,8 +6,11 @@ use std::fs;
 use anki_io::atomic_rename;
 use anki_io::new_tempfile_in_parent_of;
 use anki_io::write_file;
+#[cfg(feature = "network")]
 use axum::response::IntoResponse;
+#[cfg(feature = "network")]
 use axum::response::Response;
+#[cfg(feature = "network")]
 use reqwest::Client;
 
 use crate::collection::CollectionBuilder;
@@ -16,9 +19,10 @@ use crate::prelude::*;
 use crate::storage::SchemaVersion;
 use crate::sync::error::HttpResult;
 use crate::sync::error::OrHttpErr;
+#[cfg(feature = "network")]
 use crate::sync::http_client::HttpSyncClient;
+#[cfg(feature = "network")]
 use crate::sync::login::SyncAuth;
-use crate::sync::request::IntoSyncRequest;
 use crate::sync::request::MAXIMUM_SYNC_PAYLOAD_BYTES_UNCOMPRESSED;
 
 /// Old clients didn't display a useful message on HTTP 400, and were expected
@@ -27,30 +31,37 @@ pub const CORRUPT_MESSAGE: &str =
     "Your upload was corrupt. Please use Check Database, or restore from backup.";
 
 impl Collection {
+    #[cfg(feature = "network")]
     /// Upload collection to AnkiWeb. Caller must re-open afterwards.
     pub async fn full_upload(self, auth: SyncAuth, client: Client) -> Result<()> {
         self.full_upload_with_server(HttpSyncClient::new(auth, client))
             .await
     }
 
+    #[cfg(feature = "network")]
     // pub for tests
-    pub(super) async fn full_upload_with_server(mut self, server: HttpSyncClient) -> Result<()> {
+    pub(super) async fn full_upload_with_server(self, server: HttpSyncClient) -> Result<()> {
+        self.full_upload_with_client(server).await
+    }
+
+    #[cfg(feature = "incremental-sync")]
+    pub async fn full_upload_with_client<P: super::protocol::FullSyncClient>(
+        mut self,
+        server: P,
+    ) -> Result<()> {
         self.before_upload()?;
         let col_path = self.col_path.clone();
         let progress = self.new_progress_handler();
         self.close(Some(SchemaVersion::V18))?;
-        let col_data = fs::read(&col_path)?;
-
-        let total_bytes = col_data.len();
-        if server.endpoint.as_str().contains("ankiweb") {
+        let total_bytes = fs::metadata(&col_path)?.len() as usize;
+        if server.endpoint().as_str().contains("ankiweb") {
             check_upload_limit(
                 total_bytes,
                 *MAXIMUM_SYNC_PAYLOAD_BYTES_UNCOMPRESSED as usize,
             )?;
         }
-
         match server
-            .upload_with_progress(col_data.try_into_sync_request()?, progress)
+            .upload_file(&col_path, progress)
             .await?
             .upload_response()
         {
@@ -96,6 +107,7 @@ pub fn handle_received_upload(
     Ok(UploadResponse::Ok)
 }
 
+#[cfg(feature = "network")]
 impl IntoResponse for UploadResponse {
     fn into_response(self) -> Response {
         match self {
@@ -264,7 +276,8 @@ mod test {
         use wiremock::MockServer;
         use wiremock::ResponseTemplate;
 
-        // server accepts the upload but rejects it with a message instead of "OK"
+        // server accepts the upload but rejects it with a message instead of
+        // "OK"
         let rejection = b"server refused the upload";
         let mock = MockServer::start().await;
         Mock::given(method("POST"))

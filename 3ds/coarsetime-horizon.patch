@@ -1,0 +1,67 @@
+--- a/src/clock.rs
++++ b/src/clock.rs
+@@ -4,7 +4,11 @@
+ )))]
+ use std::time;
+ 
+-use std::sync::atomic::{AtomicU64, Ordering};
++use std::sync::atomic::Ordering;
++#[cfg(target_os = "horizon")]
++use portable_atomic::AtomicU64;
++#[cfg(not(target_os = "horizon"))]
++use std::sync::atomic::AtomicU64;
+ 
+ use super::Duration;
+ 
+--- a/src/instant.rs
++++ b/src/instant.rs
+@@ -3,7 +3,11 @@
+ use std::ops::*;
+ #[allow(unused_imports)]
+ use std::ptr::*;
+-use std::sync::atomic::{AtomicU64, Ordering};
++use std::sync::atomic::Ordering;
++#[cfg(target_os = "horizon")]
++use portable_atomic::AtomicU64;
++#[cfg(not(target_os = "horizon"))]
++use std::sync::atomic::AtomicU64;
+ 
+ use super::duration::*;
+ #[allow(unused_imports)]
+@@ -196,7 +200,8 @@
+             target_os = "linux",
+             target_os = "android",
+             target_os = "freebsd",
+-            target_os = "dragonfly"
++            target_os = "dragonfly",
++            target_os = "horizon"
+         ))
+     ))]
+     fn _now() -> u64 {
+@@ -206,6 +211,16 @@
+             tv.assume_init()
+         };
+         _timeval_to_u64(tv.tv_sec as u64, tv.tv_usec as u32)
++    }
++
++    #[cfg(target_os = "horizon")]
++    fn _now() -> u64 {
++        // libctru's monotonic kernel tick uses the fixed ARM11 system clock.
++        extern "C" { fn svcGetSystemTick() -> i64; }
++        const TICKS_PER_SECOND: u64 = 268_123_480;
++        let ticks = unsafe { svcGetSystemTick() } as u64;
++        _timespec_to_u64(ticks / TICKS_PER_SECOND,
++            ((ticks % TICKS_PER_SECOND) * 1_000_000_000 / TICKS_PER_SECOND) as u32)
+     }
+ 
+     #[cfg(windows)]
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -80,3 +80,7 @@
+ codegen-units = 1
+ panic = "abort"
+ incremental = false
++
++[target.'cfg(target_os = "horizon")'.dependencies.portable-atomic]
++version = "=1.11.1"
++features = ["std"]

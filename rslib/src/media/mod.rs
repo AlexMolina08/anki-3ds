@@ -10,6 +10,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use anki_io::create_dir_all;
+#[cfg(feature = "network")]
 use reqwest::Client;
 
 use crate::media::files::add_data_to_folder_uniquely;
@@ -17,14 +18,19 @@ use crate::media::files::mtime_as_i64;
 use crate::media::files::remove_files;
 use crate::media::files::sha1_of_data;
 use crate::prelude::*;
+#[cfg(feature = "network")]
 use crate::progress::ThrottlingProgressHandler;
+#[cfg(feature = "network")]
 use crate::sync::http_client::HttpSyncClient;
+#[cfg(feature = "network")]
 use crate::sync::login::SyncAuth;
 use crate::sync::media::database::client::changetracker::ChangeTracker;
 pub use crate::sync::media::database::client::Checksums;
 use crate::sync::media::database::client::MediaDatabase;
 use crate::sync::media::database::client::MediaEntry;
+#[cfg(feature = "network")]
 use crate::sync::media::progress::MediaSyncProgress;
+#[cfg(feature = "network")]
 use crate::sync::media::syncer::MediaSyncer;
 
 pub type Sha1Hash = [u8; 20];
@@ -141,6 +147,7 @@ impl MediaManager {
         })
     }
 
+    #[cfg(feature = "network")]
     /// Sync media.
     pub async fn sync_media(
         self,

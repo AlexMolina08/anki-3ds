@@ -13,5 +13,6 @@ pub mod protocol;
 pub mod sanity;
 pub mod start;
 pub mod status;
+#[cfg(feature = "network")]
 pub mod tests;
 pub mod upload;

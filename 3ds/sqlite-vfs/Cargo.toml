@@ -1,0 +1,15 @@
+[package]
+name = "anki-3ds-sqlite-vfs"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+publish = false
+
+# Keep the platform adapter outside the desktop workspace.
+[workspace]
+
+[dependencies]
+libsqlite3-sys = { version = "=0.34.0", features = ["bundled"] }
+
+[build-dependencies]
+cc = "1"

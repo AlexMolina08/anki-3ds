@@ -335,8 +335,9 @@ fn add_extract_fsrs_retrievability(db: &Connection) -> rusqlite::Result<()> {
                 // (x as u32).saturating_sub(y as u32)
                 // must not be changed to
                 // x.saturating_sub(y) as u32
-                // as x and y are i64's and saturating_sub will therfore allow negative numbers
-                // before converting to u32 in the latter example.
+                // as x and y are i64's and saturating_sub will therfore allow
+                // negative numbers before converting to u32 in
+                // the latter example.
                 (now as u32).saturating_sub(last_review_time.0 as u32)
             } else if due > 365_000 {
                 // (re)learning card in seconds
@@ -419,7 +420,8 @@ fn add_extract_fsrs_relative_retrievability(db: &Connection) -> rusqlite::Result
 
                         let seconds_elapsed =
                             if let Some(last_review_time) = card_data.last_review_time {
-                                // Don't change this to now.subtracting_sub(due) as u32
+                                // Don't change this to now.subtracting_sub(due)
+                                // as u32
                                 // for the same reasons listed in the comment
                                 // in add_extract_fsrs_retrievability
                                 (now as u32).saturating_sub(last_review_time.0 as u32)
@@ -772,15 +774,17 @@ mod test {
             SqliteStorage::open_or_create(tempfile.path(), &test_tr(), false, false).unwrap_err();
 
             assert_eq!(stored_schema_version(tempfile.path()), ver, "schema {ver}");
-            // A rejected open must be side-effect free, so the modification time
-            // is left untouched (read before restoring the version below).
+            // A rejected open must be side-effect free, so the modification
+            // time is left untouched (read before restoring the
+            // version below).
             let mod_after: i64 = Connection::open(tempfile.path())
                 .unwrap()
                 .query_row("select mod from col", [], |r| r.get(0))
                 .unwrap();
             assert_eq!(mod_after, collection_change.0, "schema {ver}");
-            // Only the version marker was changed in setup; restore it to verify
-            // that rejection left the collection readable and its data intact.
+            // Only the version marker was changed in setup; restore it to
+            // verify that rejection left the collection readable
+            // and its data intact.
             Connection::open(tempfile.path())
                 .unwrap()
                 .execute("update col set ver = ?", params![SCHEMA_MAX_VERSION])

@@ -10,9 +10,31 @@ workspace = ".."
 description = "Anki's Rust library code"
 
 [features]
+default = ["network"]
 bench = ["criterion"]
-rustls = ["reqwest/rustls-tls", "reqwest/rustls-tls-native-roots"]
-native-tls = ["reqwest/native-tls"]
+# HTTP clients, sync server, and async runtime used by AnkiWeb/media sync,
+# AnkiHub, update checks, and remote media fetching. Disabling default features
+# builds an offline collection/scheduler library (eg for Nintendo 3DS).
+incremental-sync = []
+network = [
+  "incremental-sync",
+  "dep:async-compression",
+  "dep:axum",
+  "dep:axum-client-ip",
+  "dep:axum-extra",
+  "dep:bytes",
+  "dep:futures",
+  "dep:hyper",
+  "dep:pin-project",
+  "dep:reqwest",
+  "dep:rustls-pemfile",
+  "dep:tokio",
+  "tokio/io-util",
+  "dep:tokio-util",
+  "dep:tower-http",
+]
+rustls = ["network", "reqwest/rustls-tls", "reqwest/rustls-tls-native-roots"]
+native-tls = ["network", "reqwest/native-tls"]
 
 [[bench]]
 name = "benchmark"
@@ -48,14 +70,14 @@ ammonia.workspace = true
 anki_i18n.workspace = true
 anki_io.workspace = true
 anki_proto.workspace = true
-async-compression.workspace = true
+async-compression = { workspace = true, optional = true }
 async-trait.workspace = true
-axum.workspace = true
-axum-client-ip.workspace = true
-axum-extra.workspace = true
+axum = { workspace = true, optional = true }
+axum-client-ip = { workspace = true, optional = true }
+axum-extra = { workspace = true, optional = true }
 bitflags.workspace = true
 blake3.workspace = true
-bytes.workspace = true
+bytes = { workspace = true, optional = true }
 chrono.workspace = true
 coarsetime.workspace = true
 convert_case.workspace = true
@@ -69,10 +91,11 @@ fluent.workspace = true
 fluent-bundle.workspace = true
 fnv.workspace = true
 fsrs.workspace = true
-futures.workspace = true
+futures = { workspace = true, optional = true }
 hex.workspace = true
 htmlescape.workspace = true
-hyper.workspace = true
+http.workspace = true
+hyper = { workspace = true, optional = true }
 id_tree.workspace = true
 itertools.workspace = true
 nom.workspace = true
@@ -83,15 +106,15 @@ pbkdf2.workspace = true
 percent-encoding-iri.workspace = true
 permutation.workspace = true
 phf.workspace = true
-pin-project.workspace = true
+pin-project = { workspace = true, optional = true }
 prost.workspace = true
 pulldown-cmark.workspace = true
 rand.workspace = true
 rayon.workspace = true
 regex.workspace = true
-reqwest.workspace = true
+reqwest = { workspace = true, optional = true }
 rusqlite.workspace = true
-rustls-pemfile.workspace = true
+rustls-pemfile = { workspace = true, optional = true }
 same-file.workspace = true
 scopeguard.workspace = true
 serde.workspace = true
@@ -104,9 +127,9 @@ sha2.workspace = true
 snafu.workspace = true
 strum.workspace = true
 tempfile.workspace = true
-tokio.workspace = true
-tokio-util.workspace = true
-tower-http.workspace = true
+tokio = { workspace = true, optional = true }
+tokio-util = { workspace = true, optional = true }
+tower-http = { workspace = true, optional = true }
 tracing.workspace = true
 tracing-appender.workspace = true
 tracing-subscriber.workspace = true

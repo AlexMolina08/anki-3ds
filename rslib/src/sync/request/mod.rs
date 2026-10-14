@@ -2,6 +2,7 @@
 // License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 
 pub mod header_and_stream;
+#[cfg(feature = "network")]
 mod multipart;
 
 use std::any::Any;
@@ -10,20 +11,30 @@ use std::marker::PhantomData;
 use std::net::IpAddr;
 use std::sync::LazyLock;
 
+#[cfg(feature = "network")]
 use axum::body::Body;
+#[cfg(feature = "network")]
 use axum::extract::FromRequest;
+#[cfg(feature = "network")]
 use axum::extract::Multipart;
+#[cfg(feature = "network")]
 use axum::http::Request;
-use axum::http::StatusCode;
+#[cfg(feature = "network")]
 use axum::RequestPartsExt;
+#[cfg(feature = "network")]
 use axum_client_ip::ClientIp;
+#[cfg(feature = "network")]
 use axum_extra::TypedHeader;
-use header_and_stream::SyncHeader;
+pub use header_and_stream::SyncHeader;
+#[cfg(feature = "network")]
+use http::StatusCode;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::Error;
+#[cfg(feature = "network")]
 use tracing::Span;
 
+#[cfg(feature = "network")]
 use crate::sync::error::HttpError;
 use crate::sync::error::HttpResult;
 use crate::sync::error::OrHttpErr;
@@ -100,6 +111,7 @@ where
     }
 }
 
+#[cfg(feature = "network")]
 impl<S, T> FromRequest<S> for SyncRequest<T>
 where
     S: Send + Sync,
@@ -152,8 +164,8 @@ where
     where
         Self: Sized + 'static,
     {
-        // A not-very-elegant workaround for the fact that a separate impl for vec<u8>
-        // would conflict with this generic one.
+        // A not-very-elegant workaround for the fact that a separate impl for
+        // vec<u8> would conflict with this generic one.
         let is_data = (&self as &dyn Any).is::<Vec<u8>>();
         let data = if is_data {
             let boxed_self = (Box::new(self) as Box<dyn Any>)

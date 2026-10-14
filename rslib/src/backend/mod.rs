@@ -3,34 +3,45 @@
 
 mod adding;
 mod ankidroid;
+#[cfg(feature = "network")]
 mod ankihub;
+#[cfg(feature = "network")]
 mod ankiweb;
 mod card_rendering;
 mod collection;
 mod config;
 pub(crate) mod dbproxy;
 mod error;
+#[cfg(feature = "network")]
 mod github;
 mod i18n;
 mod import_export;
+#[cfg(feature = "network")]
 mod media;
 mod ops;
+#[cfg(feature = "network")]
 mod sync;
 
 use std::ops::Deref;
 use std::result;
 use std::sync::Arc;
 use std::sync::Mutex;
+#[cfg(feature = "network")]
 use std::sync::OnceLock;
 use std::thread::JoinHandle;
 
+#[cfg(feature = "network")]
 use futures::future::AbortHandle;
 use prost::Message;
+#[cfg(feature = "network")]
 use reqwest::Client;
+#[cfg(feature = "network")]
 use tokio::runtime;
+#[cfg(feature = "network")]
 use tokio::runtime::Runtime;
 
 use crate::backend::dbproxy::db_command_bytes;
+#[cfg(feature = "network")]
 use crate::backend::sync::SyncState;
 use crate::prelude::*;
 use crate::progress::Progress;
@@ -53,16 +64,22 @@ pub struct BackendInner {
     col: Mutex<Option<Collection>>,
     pub(crate) tr: I18n,
     server: bool,
+    #[cfg(feature = "network")]
     sync_abort: Mutex<Option<AbortHandle>>,
     progress_state: Arc<Mutex<ProgressState>>,
+    #[cfg(feature = "network")]
     runtime: OnceLock<Runtime>,
+    #[cfg(feature = "network")]
     state: Mutex<BackendState>,
     backup_task: Mutex<Option<JoinHandle<Result<()>>>>,
+    #[cfg(feature = "network")]
     media_sync_task: Mutex<Option<JoinHandle<Result<()>>>>,
+    #[cfg(feature = "network")]
     web_client: Mutex<Option<Client>>,
 }
 
 #[derive(Default)]
+#[cfg(feature = "network")]
 struct BackendState {
     sync: SyncState,
 }
@@ -85,15 +102,20 @@ impl Backend {
             col: Mutex::new(None),
             tr,
             server,
+            #[cfg(feature = "network")]
             sync_abort: Mutex::new(None),
             progress_state: Arc::new(Mutex::new(ProgressState {
                 want_abort: false,
                 last_progress: None,
             })),
+            #[cfg(feature = "network")]
             runtime: OnceLock::new(),
+            #[cfg(feature = "network")]
             state: Mutex::new(BackendState::default()),
             backup_task: Mutex::new(None),
+            #[cfg(feature = "network")]
             media_sync_task: Mutex::new(None),
+            #[cfg(feature = "network")]
             web_client: Mutex::new(None),
         }))
     }
@@ -127,6 +149,7 @@ impl Backend {
         )
     }
 
+    #[cfg(feature = "network")]
     fn runtime_handle(&self) -> runtime::Handle {
         self.runtime
             .get_or_init(|| {
@@ -173,6 +196,7 @@ impl Backend {
         Err(AnkiError::InvalidCertificateFormat)
     }
 
+    #[cfg(feature = "network")]
     fn web_client(&self) -> Client {
         // currently limited to http1, as nginx doesn't support http2 proxies
         let mut web_client = self.web_client.lock().unwrap();

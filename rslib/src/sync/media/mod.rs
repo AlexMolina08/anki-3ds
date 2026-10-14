@@ -1,16 +1,25 @@
 // Copyright: Ankitects Pty Ltd and contributors
 // License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 
+#[cfg(feature = "network")]
 pub mod begin;
+#[cfg(feature = "network")]
 pub mod changes;
 pub mod database;
+#[cfg(feature = "network")]
 pub mod download;
 pub mod progress;
+#[cfg(feature = "network")]
 pub mod protocol;
+#[cfg(feature = "network")]
 pub mod sanity;
+#[cfg(feature = "network")]
 pub mod syncer;
+#[cfg(feature = "network")]
 mod tests;
+#[cfg(feature = "network")]
 pub mod upload;
+#[cfg(feature = "network")]
 pub mod zip;
 
 /// The maximum length we allow a filename to be. When combined

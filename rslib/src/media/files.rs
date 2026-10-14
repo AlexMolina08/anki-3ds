@@ -180,13 +180,18 @@ where
     let existing_file_hash = existing_file_sha1(&target_path)?;
 
     if matches!(existing_file_hash, Some(hash) if hash == sha1) {
-        if let Some(normalised_existing_name) = fs::canonicalize(&target_path).ok().and_then(|p| {
+        #[cfg(target_os = "horizon")]
+        let canonical = anki_io::canonical_sd_file(&target_path);
+        #[cfg(not(target_os = "horizon"))]
+        let canonical = fs::canonicalize(&target_path);
+        if let Some(normalised_existing_name) = canonical.ok().and_then(|p| {
             p.file_name()?
                 .to_str()
                 .and_then(filename_if_normalized)
                 .map(Cow::into_owned)
         }) {
-            // existing file has same checksum and normalised name, nothing to do
+            // existing file has same checksum and normalised name, nothing to
+            // do
             return Ok(normalised_existing_name.into());
         }
     }
@@ -217,7 +222,8 @@ where
 
 /// Convert foo.jpg into foo-abcde12345679.jpg
 pub(crate) fn add_hash_suffix_to_file_stem(fname: &str, hash: &Sha1Hash) -> String {
-    // when appending a hash to make unique, it will be 40 bytes plus the hyphen.
+    // when appending a hash to make unique, it will be 40 bytes plus the
+    // hyphen.
     let max_len = MAX_MEDIA_FILENAME_LENGTH - 40 - 1;
 
     let (stem, ext) = split_and_truncate_filename(fname, max_len);
@@ -368,8 +374,9 @@ where
         let secs = time::SystemTime::now();
         let times = FileTimes::new().set_accessed(secs).set_modified(secs);
         if let Err(err) = set_file_times(&dst_path, times) {
-            // The libc utimes() call fails on (some? all?) Android devices. Since we don't
-            // do automatic expiry yet, we can safely ignore the error.
+            // The libc utimes() call fails on (some? all?) Android devices.
+            // Since we don't do automatic expiry yet, we can safely
+            // ignore the error.
             if !cfg!(target_os = "android") {
                 return Err(err.into());
             }

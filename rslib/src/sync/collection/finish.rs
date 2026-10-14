@@ -3,11 +3,12 @@
 
 use crate::prelude::*;
 use crate::sync::collection::normal::ClientSyncState;
+#[cfg(feature = "incremental-sync")]
 use crate::sync::collection::normal::NormalSyncer;
 use crate::sync::collection::protocol::EmptyInput;
-use crate::sync::collection::protocol::SyncProtocol;
 
-impl NormalSyncer<'_> {
+#[cfg(feature = "incremental-sync")]
+impl<P: crate::sync::collection::protocol::SyncClient> NormalSyncer<'_, P> {
     pub(in crate::sync) async fn finalize(&mut self, state: &ClientSyncState) -> Result<()> {
         let new_server_mtime = self.server.finish(EmptyInput::request()).await?.json()?;
         self.col.finalize_sync(state, new_server_mtime)

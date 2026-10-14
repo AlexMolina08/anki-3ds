@@ -1,0 +1,25 @@
+[package]
+name = "anki-3ds-runtime-probe"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[workspace]
+
+[dependencies]
+anki-3ds-sqlite-vfs = { path = "../sqlite-vfs" }
+coarsetime = "=0.1.36"
+ctru-rs = { git = "https://github.com/rust3ds/ctru-rs" }
+portable-atomic = { version = "=1.11.1", features = ["std"] }
+rusqlite = { version = "=0.36.0", features = ["trace", "functions", "collation", "bundled"] }
+zstd = { version = "=0.13.3", features = ["zstdmt"] }
+zstd-sys = "=2.0.15"
+
+[patch.crates-io]
+coarsetime = { path = "../../out/3ds/patched-deps/coarsetime" }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1

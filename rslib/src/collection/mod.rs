@@ -159,6 +159,11 @@ impl Debug for Collection {
 }
 
 impl Collection {
+    /// Change UI translations without reopening or modifying collection data.
+    pub fn set_tr(&mut self, tr: I18n) {
+        self.tr = tr;
+    }
+
     pub fn as_builder(&self) -> CollectionBuilder {
         let mut builder = CollectionBuilder::new(&self.col_path);
         builder
@@ -183,8 +188,8 @@ impl Collection {
     }
 
     pub(crate) fn usn(&self) -> Result<Usn> {
-        // if we cache this in the future, must make sure to invalidate cache when usn
-        // bumped in sync.finish()
+        // if we cache this in the future, must make sure to invalidate cache
+        // when usn bumped in sync.finish()
         self.storage.usn(self.server)
     }
 

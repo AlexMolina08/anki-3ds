@@ -5,10 +5,13 @@ use std::error::Error;
 use std::fmt::Display;
 use std::fmt::Formatter;
 
-use axum::http::StatusCode;
+#[cfg(feature = "network")]
 use axum::response::IntoResponse;
+#[cfg(feature = "network")]
 use axum::response::Redirect;
+#[cfg(feature = "network")]
 use axum::response::Response;
+use http::StatusCode;
 
 pub type HttpResult<T, E = HttpError> = Result<T, E>;
 
@@ -49,6 +52,7 @@ impl HttpError {
     }
 }
 
+#[cfg(feature = "network")]
 impl IntoResponse for HttpError {
     fn into_response(self) -> Response {
         let HttpError {

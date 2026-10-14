@@ -1,0 +1,25 @@
+[package]
+name = "anki-3ds-text-probe"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+publish = false
+
+# Keep the proof independent of the complete backend's blocked dependency graph.
+[workspace]
+
+[dependencies]
+# Match the upstream Cargo.lock for the unchanged rslib/src/text.rs module.
+ammonia = "=4.1.4"
+ctru-rs = { git = "https://github.com/rust3ds/ctru-rs" }
+htmlescape = "=0.3.1"
+percent-encoding-iri = { git = "https://github.com/ankitects/rust-url.git", rev = "bb930b8d089f4d30d7d19c12e54e66191de47b88" }
+phf = { version = "=0.11.3", features = ["macros"] }
+regex = "=1.11.2"
+unicase = "=2.6.0"
+unicode-normalization = "=0.1.24"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
