@@ -62,6 +62,7 @@ pub struct OfferedCard {
     pub intervals: Vec<String>,
     pub question: String,
     pub answer: String,
+    pub cloze_answer: Option<String>,
     pub new_count: u32,
     pub learn_count: u32,
     pub review_count: u32,
@@ -200,7 +201,11 @@ impl Backend {
             return Err("the card rendered to nothing".into());
         }
         let question = self.to_text(&render_nodes(rendered.question_nodes))?;
-        let answer = self.answer_text(&render_nodes(rendered.answer_nodes))?;
+        let answer_html = render_nodes(rendered.answer_nodes);
+        let cloze_answer = super::review_text::mark_clozes(&answer_html)
+            .map(|html| self.to_text(&html))
+            .transpose()?;
+        let answer = self.answer_text(&answer_html)?;
         let intervals = SchedulerService::describe_next_states(
             &mut self.collection,
             queued
@@ -214,6 +219,7 @@ impl Backend {
             intervals,
             question,
             answer,
+            cloze_answer,
             queued,
             new_count,
             learn_count,

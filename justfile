@@ -445,3 +445,8 @@ old3ds-app-cia-smoke label:
 
 old3ds-container-release:
     bash 3ds/container-build.sh
+
+# Focused text-rendering checks; does not run upstream Anki suites.
+old3ds-review-text-tests:
+    PATH="$HOME/.cargo/bin:$PATH" rustup run nightly-2026-10-12 rustc --edition 2021 --test 3ds/app/src/review_text.rs -o out/3ds/review-text-tests
+    out/3ds/review-text-tests

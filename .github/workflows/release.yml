@@ -56,6 +56,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo 'Release already published; preserving its existing assets and checksums.'
+            exit 0
+          fi
           gh release create "$GITHUB_REF_NAME" release/* \
             --verify-tag --prerelease --title "Anki 3DS $GITHUB_REF_NAME" \
             --notes-file 3ds/RELEASE_NOTES.md

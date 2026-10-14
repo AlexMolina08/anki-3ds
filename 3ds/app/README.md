@@ -30,6 +30,10 @@ Use disposable data until final hardware and authenticated AnkiWeb verification.
 
 - Decks: D-pad selects; A studies; Left/Right expands or collapses.
 - Review: A reveals; Y Again, X Hard, A Good, R Easy. Touch ratings also work.
+  Revealed cloze answers appear in blue in their context on the top screen.
+  The bottom answer panel stays available. Up/Down scrolls both panels;
+  Left/Right moves five lines. Swipe the answer text or drag its right scrollbar
+  to read long cards without moving the rating buttons.
 - Add/Edit: select a field for the Nintendo keyboard; X saves, B cancels.
 - Browse: upstream search syntax; X opens search.
 - Menu → Log in: enter your AnkiWeb email and masked password once. Login checks

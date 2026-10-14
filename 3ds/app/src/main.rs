@@ -6,6 +6,7 @@ mod auth_store;
 mod backend;
 mod clock;
 mod i18n;
+mod review_text;
 mod sync;
 mod time_correction;
 mod ui;
@@ -213,7 +214,7 @@ fn wrap_text(text: &str, width: f32, scale: f32) -> Vec<String> {
             } else {
                 format!("{line} {word}")
             };
-            if Ui::get_text_width(scale, &candidate) <= width {
+            if Ui::get_text_width(scale, &review_text::plain(&candidate)) <= width {
                 line = candidate;
                 continue;
             }
@@ -223,7 +224,7 @@ fn wrap_text(text: &str, width: f32, scale: f32) -> Vec<String> {
             for ch in word.chars() {
                 let mut candidate = line.clone();
                 candidate.push(ch);
-                if Ui::get_text_width(scale, &candidate) > width && !line.is_empty() {
+                if Ui::get_text_width(scale, &review_text::plain(&candidate)) > width && !line.is_empty() {
                     lines.push(std::mem::take(&mut line));
                 }
                 line.push(ch);
@@ -256,8 +257,22 @@ impl TextLayout {
         }
         let max = self.lines.len().saturating_sub(count);
         let start = scroll.min(max);
-        for (i, line) in self.lines.iter().skip(start).take(count).enumerate() {
-            Ui::draw_text_centered(center, y + i as f32 * 19.0, 0.55, COLOR_TEXT_DARK, line);
+        let mut emphasis = 0usize;
+        for (index, line) in self.lines.iter().take(start + count).enumerate() {
+            let mut x = center - Ui::get_text_width(0.55, &review_text::plain(line)) / 2.0;
+            let mut run = String::new();
+            for ch in line.chars().chain(std::iter::once('\0')) {
+                if matches!(ch, review_text::CLOZE_START | review_text::CLOZE_END | '\0') {
+                    if index >= start {
+                        let color = if emphasis > 0 { COLOR_COUNT_NEW } else { COLOR_TEXT_DARK };
+                        Ui::draw_text(x, y + (index - start) as f32 * 19.0, 0.55, color, &run);
+                    }
+                    x += Ui::get_text_width(0.55, &run);
+                    run.clear();
+                    if ch == review_text::CLOZE_START { emphasis += 1; }
+                    else if ch == review_text::CLOZE_END { emphasis = emphasis.saturating_sub(1); }
+                } else { run.push(ch); }
+            }
         }
         if max > 0 {
             Ui::draw_text_right(
@@ -742,13 +757,17 @@ fn main() {
 
         if matches!(screen, Screen::Answer { .. }) && held.contains(KeyPad::TOUCH) {
             let (x, y) = hid.touch_position();
-            if down.contains(KeyPad::TOUCH) && x < 292 && (43..181).contains(&y) {
+            if x >= 292 && (43..181).contains(&y) {
+                let max = top_max.max(bottom_max);
+                card_scroll = (((y - 43) as f32 / 137.0) * max as f32).round() as usize;
+                touch_drag = None;
+            } else if down.contains(KeyPad::TOUCH) && x < 292 && (43..181).contains(&y) {
                 touch_drag = Some((y as i32, 0.0, card_scroll));
             } else if let Some((last_y, remainder, _)) = &mut touch_drag {
                 *remainder += (*last_y - y as i32) as f32;
                 *last_y = y as i32;
                 while *remainder >= 19.0 {
-                    card_scroll = (card_scroll + 1).min(bottom_max);
+                    card_scroll = (card_scroll + 1).min(top_max.max(bottom_max));
                     *remainder -= 19.0;
                 }
                 while *remainder <= -19.0 {
@@ -1343,7 +1362,7 @@ fn main() {
                         }
                         _ => {
                             let max = if matches!(screen, Screen::Answer { .. }) {
-                                bottom_max
+                                top_max.max(bottom_max)
                             } else {
                                 top_max
                             };
@@ -1536,17 +1555,16 @@ fn main() {
             Screen::Question { card, deck_name } | Screen::Answer { card, deck_name } => {
                 Ui::fit_text(200.0, 28.0, 0.46, 368.0, COLOR_TEXT_MUTED, deck_name);
                 Ui::draw_line(16.0, 49.0, 384.0, 49.0, 1.0, COLOR_PANEL_BORDER);
+                let text = if matches!(screen, Screen::Answer { .. }) {
+                    card.cloze_answer.as_deref().unwrap_or(&card.question)
+                } else { &card.question };
                 top_max = top_layout.draw(
-                    &card.question,
+                    text,
                     360.0,
                     200.0,
                     66.0,
                     6,
-                    if matches!(screen, Screen::Question { .. }) {
-                        card_scroll
-                    } else {
-                        0
-                    },
+                    card_scroll,
                 );
                 counts(card.new_count, card.learn_count, card.review_count, 193.0);
             }
@@ -1679,15 +1697,16 @@ fn main() {
             Screen::Answer { card, .. } => {
                 header(320.0, tr("Answer"));
                 bottom_max = bottom_layout.draw(&card.answer, 272.0, 152.0, 51.0, 6, card_scroll);
-                if bottom_max > 0 {
+                let review_max = top_max.max(bottom_max);
+                if review_max > 0 {
                     Ui::draw_scrollbar(
                         300.0,
                         43.0,
                         20.0,
                         138.0,
-                        bottom_max + 6,
+                        review_max + 6,
                         6,
-                        card_scroll.min(bottom_max),
+                        card_scroll.min(review_max),
                     );
                 }
                 for (i, label) in [tr("Again"), tr("Hard"), tr("Good"), tr("Easy")]

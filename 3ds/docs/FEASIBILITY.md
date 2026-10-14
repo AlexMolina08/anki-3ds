@@ -273,3 +273,25 @@ The original Anki test suites were not rerun. Physical confirmation is pending.
 `closed-download-corrupt-01` repeated the full-download flow with an invalid
 response. The operation was rejected and the original collection rows remained
 unchanged. Logs are under `out/3ds/logs/closed-download-*.log`.
+
+
+## 2026-10-14: Cloze reveal and review scrolling
+
+The 3DS interface now preserves upstream-generated active cloze spans through
+its existing plain-text conversion. Revealing a cloze shows the filled answer
+in blue on the top screen. Other text and the bottom answer panel keep their
+existing colors. Span nesting is tracked so inner formatting cannot end the
+blue region early. This does not add CSS or change card rendering/scheduling
+semantics in rslib. Basic cards retain their original top question.
+
+Both review panels now follow scrolling, clamped independently. The D-pad moves
+one line or five lines. Swiping the answer text uses the larger panel extent;
+the right scrollbar can be touched or dragged. Rating buttons remain fixed.
+
+`just old3ds-review-text-tests` passed 2/2 cases for multiple upstream clozes,
+nested formatting, quoted tag attributes and unchanged basic cards.
+`just old3ds-app-sync-build` passed. An isolated disposable long-cloze fixture
+produced inspected native frames in `out/3ds/review-preview-032/`: initial blue
+answer, a wrapped blue region after scrolling, and both panels near the end.
+Touch scrollbar movement was verified by the native event log and screenshots.
+These checks are emulator evidence, not physical-console confirmation.
