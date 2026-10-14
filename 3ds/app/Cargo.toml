@@ -1,0 +1,40 @@
+[package]
+name = "anki-3ds"
+version = "0.2.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[workspace]
+
+[features]
+emulator = ["anki-3ds-sync-transport/emulator"]
+
+[dependencies]
+ammonia = "4"
+anki = { path = "../../rslib", default-features = false, features = ["incremental-sync"] }
+anki-3ds-sqlite-vfs = { path = "../sqlite-vfs" }
+anki-3ds-sync-transport = { path = "../sync-transport" }
+# Generated request/response types. rslib's service traits are generic over
+# these, so the application names the protocol crate directly.
+anki_proto = { path = "../../rslib/proto" }
+ctru-rs = { git = "https://github.com/rust3ds/ctru-rs" }
+futures = { version = "0.3", default-features = false, features = ["executor"] }
+# The rendered-card line-break pattern. Anki already depends on this crate, so
+# the version matches the one the backend itself links.
+regex = "1.11.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "registry"] }
+
+[build-dependencies]
+cc = "1.2"
+
+[patch.crates-io]
+coarsetime = { path = "../../out/3ds/patched-deps/coarsetime" }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
