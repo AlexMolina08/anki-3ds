@@ -1,5 +1,19 @@
 # Native application
 
+## Installation
+
+Extract the release ZIP and copy its `3ds` folder to the root of the console's
+SD card, merging it with an existing `3ds` folder. The executable must be at
+`SD:/3ds/anki-3ds/anki-3ds.3dsx`. Open Homebrew Launcher and select Anki 3DS.
+This package requires an existing Homebrew Launcher setup; it is not a CIA
+installer or a HOME Menu application.
+
+For an upgrade, replace only `anki-3ds.3dsx`. Preserve existing collection files
+and settings. The CA bundle is embedded, so no separate certificate installation
+is required. The README, licenses and manifest can remain on your computer.
+
+## Build and startup
+
 `just old3ds-app-build` builds ARMv6K/VFPv2. `just old3ds-app-package` packages the
 one executable with an embedded CA bundle, without a collection or credentials.
 First launch creates its SD folder and writes `cacert.pem` if absent. Sending the
