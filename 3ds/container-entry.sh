@@ -14,4 +14,5 @@ export PATH="$HOME/.cargo/bin:$PATH"
 rustup toolchain install nightly-2026-10-12 --profile minimal --component rust-src
 cargo +nightly-2026-10-12 install just --version 1.58.0 --locked
 just old3ds-setup
+just old3ds-review-text-tests
 ANKI_3DS_RELEASE=1 just old3ds-release
