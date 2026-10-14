@@ -1,60 +1,109 @@
-
 # Anki 3DS
 
-An experimental port of [Anki](https://github.com/ankitects/anki) for the Nintendo 3DS family of handheld consoles.
+An unofficial native port of Anki for the original Nintendo 3DS. It uses Anki's
+Rust backend for collections, FSRS scheduling, note editing, search, undo, and
+synchronization. The interface uses both screens and the Nintendo keyboard.
 
-The project aims to bring Anki's spaced repetition system to Nintendo 3DS hardware while reusing as much of the original codebase as possible.
+The console runs the application itself. A computer builds the executable and
+can transfer files; it is not needed while studying or connecting to AnkiWeb.
 
-## Project Status
+```mermaid
+flowchart TD
+    UI[3DS interface: decks, reviews, notes, login] --> Collection[Original Anki Collection]
+    Collection --> Scheduler[Original scheduler and FSRS]
+    Collection --> SQLite[SQLite with Horizon SD adapter]
+    Collection --> Sync[Original NormalSyncer and full sync]
+    Sync --> Protocol[Upstream SyncProtocol]
+    Protocol --> Native[NativeSyncClient]
+    Native --> TLS[curl 8.22.0 and mbedTLS 3.6.7]
+    TLS --> SOC[Native Horizon sockets]
+    SOC --> AnkiWeb[AnkiWeb HTTPS]
+```
 
-> [!IMPORTANT]
-> **Early development — feasibility stage.**
->
-> This project is experimental. No functional release is currently available.
+## What works
 
-Development is initially focused on evaluating whether Anki's Rust backend (`rslib`) can be adapted to run on Nintendo 3DS hardware.
+Offline study, four ratings, learning-card recurrence, note creation/editing,
+search, deck limits, statistics, and undo run in Azahar's Old 3DS mode. The UI
+supports English and Spanish, selected from the console language or the menu.
 
-The original Nintendo 3DS is the primary target, with compatibility across the wider 3DS family as a goal.
+Collection sync uses the original engine. Login uses a masked keyboard; credentials
+stay in memory until exit. Sync shows live stages, transfer counts, and an animated
+indicator. A full sync requires confirmation before replacing either collection.
+TLS verifies certificates and hostnames; there is no insecure fallback.
 
-## Goals
+See [current verification and limits](3ds/docs/FEASIBILITY.md). Authenticated
+production AnkiWeb sync and the final application package still require separate
+verification. Use disposable collections until those gates are complete.
 
-- **Native execution:** Run directly on Nintendo 3DS hardware without emulation.
-- **Original Anki backend:** Reuse Anki's existing Rust implementation rather than developing a separate flashcard engine.
-- **Offline reviews:** Study flashcards without an internet connection.
-- **Collection compatibility:** Preserve compatibility with Anki's collection format and scheduling system.
-- **AnkiWeb synchronization:** Investigate direct synchronization without requiring a computer or intermediary server.
-- **Dual-screen interface:** Design an interface suited to the Nintendo 3DS hardware and touchscreen.
+## Test evidence
 
-## Technical Approach
+The port runs Anki's existing test bodies and assertions. These counts distinguish
+native execution from desktop checks; overlapping suites are not added together.
 
-Anki's backend is primarily written in Rust. Nintendo 3DS homebrew development also supports Rust through the experimental `armv6k-nintendo-3ds` target.
+| Original Anki suite                                    | Environment                   | Observed result                                               |
+| ------------------------------------------------------ | ----------------------------- | ------------------------------------------------------------- |
+| Rust workspace, including `rslib`                      | macOS                         | **767 passed**, 0 skipped; 747 are core `rslib` tests         |
+| Collection/sync regression subset                      | macOS                         | **38 passed**, 0 failed                                       |
+| Offline backend and utility tests                      | Azahar, Old 3DS mode          | **697 passed, 16 failed** across 713 attempted original tests |
+| Scheduler subset, including FSRS, answering and queues | Azahar, Old 3DS mode          | **133/133 passed**                                            |
+| Deck configuration subset                              | Azahar, Old 3DS mode          | **52/52 passed**                                              |
+| Python collection compatibility suite                  | macOS, checkout-built backend | **184 passed**                                                |
 
-The initial work will investigate:
+The remaining native unit failures cover unsupported filesystem/process operations,
+shared-WAL gaps, and an emulator filesystem mismatch. The native offline test
+configuration excludes 41 network-gated tests; it does not count them as passes.
+The native unit aggregate is earlier evidence, not a fresh rerun of the current app.
 
-1. Cross-compiling Anki's Rust backend for Nintendo 3DS.
-2. Resolving platform-specific dependencies and system limitations.
-3. Accessing and modifying Anki collections on local storage.
-4. Running the original scheduling engine on the console.
-5. Evaluating networking and direct AnkiWeb synchronization.
+Separately, the native application runs the original `NormalSyncer` against Anki's
+original desktop sync server over validated TLS. Seven disposable incremental
+cases match desktop results and an independent SQL oracle: unchanged collections,
+local edits, remote edits, disjoint edits, review history, deletions, and conflicts.
+Full upload/download, cancellation, interruption/recovery, corrupt download rejection,
+and certificate/hostname rejection have also passed controlled emulator tests.
+These are collection integration cases, not extra upstream unit-test counts.
 
-The feasibility of these components has not yet been established.
+A physical Old 3DS report records ten Phase 4 engine cases passing. Its independent
+database comparison remains incomplete. The final application build has not yet
+been tested on hardware or authenticated against production AnkiWeb.
 
-## Development
+Reproduce desktop sync checks with `just old3ds-sync-regression`. Native upstream
+registration, fixtures, and comparison code live in [3ds/testing](3ds/testing).
+Raw logs and databases remain under ignored `out/3ds/testing`, `out/3ds/app-sync`,
+and `out/3ds/logs`; [port status](3ds/docs/FEASIBILITY.md) names the current records.
 
-The project is currently in its research and prototyping phase.
+## Build
 
-Build instructions, development documentation, and technical findings will be added as implementation progresses.
+Install devkitPro's 3DS tools, Rust nightly with `rust-src`, `cargo-3ds`, and protoc.
+Versions and environment are in [toolchain.sh](3ds/toolchain.sh).
 
-## Upstream & Attribution
+```sh
+just old3ds-https-libs
+just old3ds-app-build
+just old3ds-app-package
+```
 
-Anki 3DS is an unofficial fork of [Anki](https://github.com/ankitects/anki), originally developed by Damien Elmes and its contributors.
+The package contains the executable and CA bundle. It does not replace an existing
+collection. The application opens `sdmc:/3ds/anki-3ds/prototype.anki2`, creating an empty
+collection if the file does not exist.
+On first launch, enter the console clock's UTC offset in minutes; update it from
+Menu when daylight saving changes. For Madrid, use 120 in summer or 60 in winter.
 
-This project is not affiliated with or endorsed by the official Anki development team or Nintendo.
+## Source layout
 
-All applicable copyright notices and licensing requirements from the upstream project are retained.
+- [`3ds/app`](3ds/app): UI, language catalogs, background sync, and application packaging.
+- [`3ds/sync-transport`](3ds/sync-transport): HTTPS, DNS, entropy, SOC ownership, and file transport.
+- [`3ds/sqlite-vfs`](3ds/sqlite-vfs): native SQLite SD access and locking.
+- [`rslib`](rslib): original Anki backend, with narrow portability feature gates.
+- [`3ds/testing`](3ds/testing) and probe crates: disposable fixtures and native regression evidence.
+
+The upstream Python, Qt, web, protocol, and build sources remain for desktop
+validation and future upstream merges. They are not included in the 3DS executable.
+Generated collections, screenshots, logs, toolchains, and build caches belong in
+ignored `out/`, not the source tree. Fork-only release, publishing, and issue bots
+have been removed.
 
 ## License
 
-This project is based on Anki and is distributed under the applicable licenses of the original codebase.
-
-See the repository's existing license files for details.
+Based on [Anki](https://github.com/ankitects/anki), by Ankitects and contributors.
+This project is not endorsed by Ankitects or Nintendo. Upstream copyright notices
+and licenses are retained. See [LICENSE](LICENSE).

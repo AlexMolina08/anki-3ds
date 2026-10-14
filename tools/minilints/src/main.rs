@@ -22,6 +22,7 @@ use walkdir::WalkDir;
 
 const NONSTANDARD_HEADER: &[&str] = &[
     "./pylib/anki/_vendor/stringcase.py",
+    "./3ds/app/capture.py",
     "./pylib/anki/statsbg.py",
     "./qt/aqt/mpv.py",
     "./qt/aqt/winpaths.py",
@@ -106,7 +107,10 @@ impl LintContext {
         if self.nonstandard_headers.contains(&path) {
             return Ok(());
         }
-        let missing = !head.contains("Ankitects Pty Ltd and contributors");
+        let port_header = path.starts_with("./3ds/")
+            && head.contains("Copyright: Anki 3DS contributors")
+            && head.contains("GNU AGPL, version 3 or later");
+        let missing = !head.contains("Ankitects Pty Ltd and contributors") && !port_header;
         if missing {
             if self.want_fix {
                 LazyCell::force(&self.unstaged_changes);
