@@ -1,0 +1,30 @@
+[package]
+name = "anki-3ds-sync-probe"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[workspace]
+
+[dependencies]
+anki = { path = "../../rslib", default-features = false }
+anki-3ds-sync-transport = { path = "../sync-transport" }
+ctru-rs = { git = "https://github.com/rust3ds/ctru-rs" }
+ctru-sys = { git = "https://github.com/rust3ds/ctru-rs" }
+futures = { version = "0.3", default-features = false, features = ["executor"] }
+http = "1"
+serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+zstd = { version = "0.13", default-features = false }
+
+[build-dependencies]
+cc = "1.2"
+
+[patch.crates-io]
+coarsetime = { path = "../../out/3ds/patched-deps/coarsetime" }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
